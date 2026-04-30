@@ -1,0 +1,1684 @@
+using System;
+using System.IO;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Drawing;
+using System.Windows.Forms;
+using System.Xml;
+using System.Linq; 
+
+namespace PingBox
+{
+    public partial class FormMain : Form
+    {
+        public List<string> backimages = new List<string>();
+        public List<ListView> listViews = new List<ListView>();
+        public List<Button> buttons = new List<Button>();
+        public List<ImageList> largeImageLists = new List<ImageList>();
+        public List<ImageList> mediumImageLists = new List<ImageList>();
+        public List<ImageList> smallImageLists = new List<ImageList>();
+        public TabControl tabControl;
+        public bool noexit;
+        private bool goexit = false;
+        public bool hideStart;
+        public bool hideRun;
+        public bool noReadLnk;
+        public bool dClick = true;
+        public int tbwidth;
+        public int tbheight;
+        public int lineSpacing;
+        public int columnSpacing;
+        public readonly string apppath;
+        public readonly string appname;
+        public readonly string appdir;
+        private readonly string cfgFile;
+        private int width;
+        private int height;
+        private int locationx;
+        private int locationy;
+        //public Color colorB1 = Color.White;
+        public Color colorF1 = Color.Black;
+        public Color colorB2 = Color.LightBlue;
+        public Color colorF2 = Color.Black;
+
+        private ListViewItem dragMove;
+
+        public bool hotkeyon;
+        public string hotkey1;
+        public string hotkey2;
+
+        public FormMain()
+        {
+            apppath = Application.ExecutablePath;
+            appdir = Application.StartupPath.TrimEnd('\\');
+            appname = System.IO.Path.GetFileNameWithoutExtension(apppath);
+            cfgFile = appdir + "\\" + appname + ".xml";
+            tbwidth = 55;
+            tbheight = 23;
+            lineSpacing = 75;
+            columnSpacing = 75;
+            InitializeComponent();
+            // 从文件加载图标
+            this.Icon = new Icon("pingbox.ico");
+            Load += FormMain_Load;
+            FormClosing += FormMain_FormClosing;
+            panel1.Dock = DockStyle.Fill; 
+            panel1.MouseDown += FormMain_MouseDown;
+            panelButton.MouseDown += FormMain_MouseDown;
+            Resize += FormMain_Resize;
+            LocationChanged += FormMain_LocationChanged;
+            tabControl = new TabControl
+            {
+                Alignment = TabAlignment.Bottom,
+                ContextMenuStrip = contextMenuStripMain,
+                //tabControl.Dock = DockStyle.Fill;
+                ItemSize = new Size(48, 16),
+                //Location = new Point(0, 0),
+                Margin = new Padding(0),
+                Padding = new Point(0, 0)
+            };
+            panel1.Controls.Add(tabControl);
+            ReadCfg();
+            notifyIcon.Text = Text;
+            //if (tabControl.SelectedIndex > -1)
+            //{
+            //    buttons[tabControl.SelectedIndex].BackColor = Color.LightBlue;
+            //}
+            panelButton.Height = tbheight;
+            panelButton.Width = tbwidth;
+            string icofile = appdir + "\\" + appname + ".ico";
+            if (System.IO.File.Exists(icofile))
+            {
+                try
+                {
+                    notifyIcon.Icon = new Icon(icofile);
+                }
+                catch { }
+            }
+            Icon = notifyIcon.Icon;
+            FitButton();
+            // panel1 是你在设计器中拖放的Panel
+            panel1.AllowDrop = true;
+            panel1.DragEnter += Panel_DragEnter;
+            panel1.DragDrop += Panel_DragDrop;
+        }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        public static extern bool ReleaseCapture();
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        public static extern bool SendMessage(IntPtr hwnd, int wMsg, int wParam, int lParam);
+
+        #region Event
+        private void FormMain_Load(object sender, EventArgs e)
+        {
+            if (hideStart)
+            {
+                WindowState = FormWindowState.Minimized;
+                BeginInvoke(new System.Threading.ThreadStart(Hide));
+            }
+            if (lineSpacing != 75 || columnSpacing != 75)
+                SetIcoSpacing();
+        }
+
+
+
+        private void Panel_DragEnter(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                e.Effect = DragDropEffects.Copy;
+                panel1.BackColor = Color.LightGreen; // 视觉反馈
+            }
+            else
+            {
+                e.Effect = DragDropEffects.None;
+            }
+        }
+
+        private void Panel_DragDrop(object sender, DragEventArgs e)
+        {
+            // 恢复背景色
+            panel1.BackColor = Color.White;
+            
+                
+         string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+
+            if (files != null && files.Length > 0)
+            {
+                foreach (string filePath in files)
+                {
+                    string directory = Path.GetDirectoryName(filePath);
+                    string fileName = Path.GetFileName(filePath);
+                    FileInfo fileInfo = new FileInfo(filePath);
+                    
+                    AddFiles(new string[] { filePath });
+                    //WriteCfg();
+                }
+
+            }
+
+        }
+            
+
+
+        public void SetIcoSpacing()
+        {
+            foreach (ListView listView in listViews)
+            {
+                SendMessage(listView.Handle, 0x1035, 0, 0x10000 * columnSpacing + lineSpacing);
+            }
+        }
+
+        private void FormMain_Resize(object sender, EventArgs e)
+        {
+            tabControl.Width = panel1.Width + 8;
+            tabControl.Height = panel1.Height + 8 + 16;
+            tabControl.Location = new Point(-4, -4);
+            if (WindowState == FormWindowState.Normal)
+            {
+                width = Width;
+                height = Height;
+            }
+            else if (!ShowInTaskbar && WindowState == FormWindowState.Minimized)
+            {
+                Hide();
+            }
+        }
+
+        private void FormMain_LocationChanged(object sender, EventArgs e)
+        {
+            if (WindowState == FormWindowState.Normal)
+            {
+                locationx = Location.X;
+                locationy = Location.Y;
+            }
+        }
+
+        private void FormMain_MouseDown(object sender, MouseEventArgs e)
+        {
+            ReleaseCapture();
+            SendMessage(Handle, 0x0112, 0xF010 + 0x0002, 0);
+        }
+
+        private void FormMain_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (!noexit || goexit)
+            {
+                WriteCfg();
+            }
+            else
+            {
+                e.Cancel = true;
+                Hide();
+            }
+        }
+
+        private void ListViews_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (!dClick && e.Button == MouseButtons.Left && 
+                tabControl.SelectedIndex >= 0 && 
+                tabControl.SelectedIndex < listViews.Count &&
+                listViews[tabControl.SelectedIndex].SelectedItems.Count == 1)
+            {
+                RunItem();
+            }
+        }
+
+        private void RunItem()
+        {
+            // 安全检查
+            if (tabControl.SelectedIndex < 0 || tabControl.SelectedIndex >= listViews.Count)
+            {
+                return;
+            }
+            
+            ListView currentListView = listViews[tabControl.SelectedIndex];
+            if (currentListView.SelectedItems.Count == 0)
+            {
+                return;
+            }
+            
+            string relativePath = currentListView.SelectedItems[0].SubItems[1].Text;
+            string arg = currentListView.SelectedItems[0].SubItems[2].Text;
+            bool runas = currentListView.SelectedItems[0].SubItems[3].Text.ToLower() == "true";
+            
+            try
+            {
+                string path = Path.GetFullPath(relativePath);
+                RunIcon(path, arg, runas);
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show($"无法运行项目:\n{exception.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            
+            if (hideRun == !(ModifierKeys == Keys.Control))
+            {
+                Hide();
+            }
+        }
+
+        private void ListView_DoubleClick(object sender, EventArgs e)
+        {
+            if (dClick)
+            {
+                RunItem();
+            }
+        }
+
+        private void ListView_MouseDown(object sender, MouseEventArgs e)
+        {
+            Point p = ((ListView)sender).PointToClient(MousePosition);
+            ListViewItem toitem = ((ListView)sender).GetItemAt(p.X, p.Y);
+            if (toitem == null)
+            {
+                ReleaseCapture();
+                SendMessage(Handle, 0x0112, 0xF010 + 0x0002, 0);
+            }
+        }
+
+        private void ListView_ItemDrag(object sender, ItemDragEventArgs e) => ((ListView)sender).DoDragDrop(e.Item, DragDropEffects.Move);
+
+        private void ListView_DragOver(object sender, DragEventArgs e)
+        {
+            e.Effect = DragDropEffects.Move;
+            Point p = ((ListView)sender).PointToClient(MousePosition);
+            ListViewItem item = ((ListView)sender).GetItemAt(p.X, p.Y);
+            if (item != null && item.Selected == false)
+            {
+                dragMove = item;
+            }
+        }
+
+        private void ListViews_DragDrop(object sender, DragEventArgs e)
+        {
+            string[] s = (string[])e.Data.GetData(DataFormats.FileDrop);
+            if (s != null && s.Length > 0)
+            {
+                AddFiles(s);
+            }
+            else
+            {
+                Point p = ((ListView)sender).PointToClient(MousePosition);
+                ListViewItem toitem = ((ListView)sender).GetItemAt(p.X, p.Y);
+                ListViewItem fritem = ((ListView)sender).SelectedItems[0];
+                if (dragMove != null && toitem != null && fritem != toitem)
+                {
+                    ((ListView)sender).BeginUpdate();
+                    if (fritem.Index > toitem.Index)
+                    {
+                        ((ListView)sender).Items.RemoveAt(fritem.Index);
+                        ((ListView)sender).Items.Insert(toitem.Index, fritem);
+                    }
+                    else if (fritem.Index < toitem.Index)
+                    {
+                        ((ListView)sender).Items.RemoveAt(fritem.Index);
+                        ((ListView)sender).Items.Insert(toitem.Index + 1, fritem);
+                    }
+                    View view = ((ListView)sender).View;
+                    if (view != View.Details && view != View.List)
+                    {
+                        ((ListView)sender).View = View.Details;
+                        ((ListView)sender).View = view;
+                    }
+                ((ListView)sender).EndUpdate();
+                }
+            }
+        }
+
+        private void Button_Click(object sender, EventArgs e)
+        {
+            int j = tabControl.SelectedIndex;
+            int bi = buttons.IndexOf((Button)sender);
+            if (bi != j)
+            {
+                tabControl.SelectedIndex = bi;
+                foreach (Button item in buttons)
+                {
+                    if (item == sender)
+                    {
+                        //item.BackColor = Color.LightBlue;
+                        item.ForeColor = colorF2;
+                        item.BackColor = colorB2;// Color.LightBlue;
+                    }
+                    else
+                    {
+                        item.BackColor = Color.Transparent;// Color.White;
+                        item.ForeColor = colorF1;
+                    }
+                    item.FlatAppearance.BorderColor = colorB2;
+                }
+            }
+        }
+
+        private void NotifyIcon_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                Show();
+                if (WindowState == FormWindowState.Minimized)
+                {
+                    WindowState = FormWindowState.Normal;
+                }
+                Activate();
+            }
+        }
+        #endregion
+
+        #region CFG
+        /// <summary>
+        /// 获取相对路径（兼容所有 .NET 版本）
+        /// </summary>
+        /// <param name="fullPath">完整路径</param>
+        /// <param name="basePath">基准路径</param>
+        /// <returns>相对路径</returns>
+        private string GetRelativePath(string basePath, string fullPath)
+        {
+            try
+            {
+                // 处理空值情况
+                if (string.IsNullOrEmpty(fullPath) || string.IsNullOrEmpty(basePath))
+                    return fullPath;
+
+                // 如果已经是相对路径，直接返回
+                if (!System.IO.Path.IsPathRooted(fullPath))
+                    return fullPath;
+
+                // 确保基准路径以目录分隔符结尾
+                if (!basePath.EndsWith(System.IO.Path.DirectorySeparatorChar.ToString()))
+                {
+                    basePath += System.IO.Path.DirectorySeparatorChar;
+                }
+
+                // 检查是否在同一驱动器
+                string fullRoot = System.IO.Path.GetPathRoot(fullPath);
+                string baseRoot = System.IO.Path.GetPathRoot(basePath);
+                
+                if (!string.Equals(fullRoot, baseRoot, StringComparison.OrdinalIgnoreCase))
+                    return fullPath; // 不同驱动器，返回绝对路径
+
+                // 网络路径（UNC），返回绝对路径
+                if (fullPath.StartsWith(@"\\"))
+                    return fullPath;
+
+                // 使用 Uri 方法计算相对路径
+                Uri fullUri = new Uri(fullPath);
+                Uri baseUri = new Uri(basePath);
+
+                string relativePath = Uri.UnescapeDataString(
+                    baseUri.MakeRelativeUri(fullUri).ToString()
+                        .Replace('/', System.IO.Path.DirectorySeparatorChar)
+                );
+
+                // 如果相对路径为空，说明是同一目录
+                if (string.IsNullOrEmpty(relativePath))
+                    return "." + System.IO.Path.DirectorySeparatorChar;
+
+                return relativePath;
+            }
+            catch (Exception ex)
+            {
+                // 转换失败，返回原路径
+                System.Diagnostics.Debug.WriteLine($"GetRelativePath failed: {ex.Message}");
+                return fullPath;
+            }
+        }
+        private void WriteCfg()
+        {
+            // 备份当前配置文件（如果存在）
+            if (File.Exists(cfgFile))
+            {
+                try
+                {
+                    string backupFile = GetBackupFileName();
+                    File.Copy(cfgFile, backupFile, true);
+                    CleanOldBackups(); // 清理旧的备份文件
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"备份配置文件失败: {ex.Message}");
+                }
+            }
+             // 先保存到临时文件，成功后再替换原文件
+            string tempFile = cfgFile + ".tmp";
+            try
+            {
+                XmlDocument doc = new XmlDocument();
+                XmlDeclaration dec = doc.CreateXmlDeclaration("1.0", "utf-8", null);
+                doc.AppendChild(dec);
+                XmlElement cfg = doc.CreateElement("Config");
+                doc.AppendChild(cfg);
+                XmlElement set = doc.CreateElement("Setting");
+                cfg.AppendChild(set);
+                XmlElement title = doc.CreateElement("Title");
+                title.InnerText = Text;
+                set.AppendChild(title);
+                XmlElement h = doc.CreateElement("Height");
+                h.InnerText = height.ToString();
+                set.AppendChild(h);
+                XmlElement w = doc.CreateElement("Width");
+                w.InnerText = width.ToString();
+                set.AppendChild(w);
+                XmlElement lx = doc.CreateElement("LocationX");
+                lx.InnerText = locationx.ToString();
+                set.AppendChild(lx);
+                XmlElement ly = doc.CreateElement("LocationY");
+                ly.InnerText = locationy.ToString();
+                set.AppendChild(ly);
+                XmlElement statusBar = doc.CreateElement("StatusBar");
+                statusBar.InnerText = ShowInTaskbar.ToString();
+                set.AppendChild(statusBar);
+                XmlElement showicon = doc.CreateElement("WindowIcon");
+                showicon.InnerText = ShowIcon.ToString();
+                set.AppendChild(showicon);
+                XmlElement hide = doc.CreateElement("HideStart");
+                hide.InnerText = hideStart.ToString();
+                set.AppendChild(hide);
+                XmlElement hrun = doc.CreateElement("HideRun");
+                hrun.InnerText = hideRun.ToString();
+                set.AppendChild(hrun);
+                XmlElement topmost = doc.CreateElement("TopMost");
+                topmost.InnerText = TopMost.ToString();
+                set.AppendChild(topmost);
+                XmlElement noex = doc.CreateElement("NotExit");
+                noex.InnerText = noexit.ToString();
+                set.AppendChild(noex);
+                XmlElement nordlnk = doc.CreateElement("NoReadLnk");
+                nordlnk.InnerText = noReadLnk.ToString();
+                set.AppendChild(nordlnk);
+                XmlElement dcl = doc.CreateElement("DoubleClickRun");
+                dcl.InnerText = dClick.ToString();
+                set.AppendChild(dcl);
+                XmlElement lspa = doc.CreateElement("LineSpacing");
+                lspa.InnerText = lineSpacing.ToString();
+                set.AppendChild(lspa);
+                XmlElement cspa = doc.CreateElement("ColumnSpacing");
+                cspa.InnerText = columnSpacing.ToString();
+                set.AppendChild(cspa);
+                XmlElement tbloc = doc.CreateElement("LabelLocation");
+                tbloc.InnerText = ((int)panelButton.Dock).ToString();
+                set.AppendChild(tbloc);
+                XmlElement tbbak1 = doc.CreateElement("LabelBackColor1");
+                tbbak1.InnerText = panelButton.BackColor.ToArgb().ToString();
+                set.AppendChild(tbbak1);
+                XmlElement tbbak2 = doc.CreateElement("LabelBackColor2");
+                tbbak2.InnerText = colorB2.ToArgb().ToString();
+                set.AppendChild(tbbak2);
+                XmlElement tbfore1 = doc.CreateElement("LabelForeColor1");
+                tbfore1.InnerText = colorF1.ToArgb().ToString();
+                set.AppendChild(tbfore1);
+                XmlElement tbfore2 = doc.CreateElement("LabelForeColor2");
+                tbfore2.InnerText = colorF2.ToArgb().ToString();
+                set.AppendChild(tbfore2);
+                XmlElement tbindex = doc.CreateElement("PageIndex");
+                tbindex.InnerText = tabControl.SelectedIndex.ToString();
+                set.AppendChild(tbindex);
+                XmlElement tbw = doc.CreateElement("LabelWidth");
+                tbw.InnerText = tbwidth.ToString();
+                set.AppendChild(tbw);
+                XmlElement tbh = doc.CreateElement("LabelHeight");
+                tbh.InnerText = tbheight.ToString();
+                set.AppendChild(tbh);
+
+                XmlElement hotkon = doc.CreateElement("HotKeyOn");
+                hotkon.InnerText = hotkeyon.ToString();
+                set.AppendChild(hotkon);
+                XmlElement hotk1 = doc.CreateElement("HotKey1");
+                hotk1.InnerText = hotkey1;
+                set.AppendChild(hotk1);
+                XmlElement hotk2 = doc.CreateElement("HotKey2");
+                hotk2.InnerText = hotkey2;
+                set.AppendChild(hotk2);
+
+                XmlElement datas = doc.CreateElement("Pages");
+                cfg.AppendChild(datas);
+                for (int i = 0; i < listViews.Count; i++)
+                {
+                    XmlElement tbnane = doc.CreateElement("Name");
+                    tbnane.InnerText = buttons[i].Text;
+                    XmlElement bk = doc.CreateElement("BackImage");
+                    bk.SetAttribute("On", (listViews[i].BackgroundImage != null).ToString());
+                    bk.SetAttribute("Tiled", listViews[i].BackgroundImageTiled.ToString());
+                    bk.InnerText = backimages[i];
+                    XmlElement fcolor = doc.CreateElement("ListForeColor");
+                    fcolor.InnerText = listViews[i].ForeColor.ToArgb().ToString();
+                    XmlElement bcolor = doc.CreateElement("ListBackColor");
+                    bcolor.InnerText = listViews[i].BackColor.ToArgb().ToString();
+                    XmlElement tab = doc.CreateElement("Page");
+                    tab.AppendChild(tbnane);
+                    tab.AppendChild(bk);
+                    tab.AppendChild(fcolor);
+                    tab.AppendChild(bcolor);
+                    foreach (ListViewItem item in listViews[i].Items)
+                    {
+                        XmlElement data = doc.CreateElement("Data");
+                        XmlElement name = doc.CreateElement("Name");
+                        name.InnerText = item.Text;
+                        XmlElement fullpath = doc.CreateElement("FullPath");
+                        string path = item.SubItems[1].Text;
+                        try
+                        {
+                            string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+
+
+                            // 不同驱动器，无法生成相对路径
+                            if (System.IO.Path.GetPathRoot(path) != System.IO.Path.GetPathRoot(appDirectory))
+                            {
+                                fullpath.InnerText = path;
+                                data.AppendChild(fullpath);
+                            }
+                            else if (path.StartsWith(@"\\"))   // 网络路径（UNC），直接使用绝对路径
+                            {
+                                fullpath.InnerText = path;
+                                data.AppendChild(fullpath);
+                            }
+                            else
+                            {
+                                // 尝试转换为相对路径 - 完全移除回溯限制
+                                string relativePath = GetRelativePath(appDirectory, path);
+                                
+                                // 只要转换成功且不是空路径，就使用相对路径
+                                if (!string.IsNullOrEmpty(relativePath) && relativePath != path)
+                                {
+                                    path = relativePath;
+                                }
+                                fullpath.InnerText = path;
+                            }
+
+
+                            //MessageBox.Show($"Original Path: {path}\nApp Directory: {AppDomain.CurrentDomain.BaseDirectory}");
+                        }
+                        catch (Exception ex)
+                        {
+                            // 转换失败，保持绝对路径
+                            fullpath.InnerText = path;
+                        }
+
+                        XmlElement arg = doc.CreateElement("Args");
+                        arg.InnerText = item.SubItems[2].Text;
+                        XmlElement runas = doc.CreateElement("RunAs");
+                        runas.InnerText = item.SubItems[3].Text;
+                        data.AppendChild(name);
+                        data.AppendChild(fullpath);
+                        data.AppendChild(arg);
+                        data.AppendChild(runas);
+                        tab.AppendChild(data);
+                    }
+                    datas.AppendChild(tab);
+                }
+                    // 先保存到临时文件
+                doc.Save(tempFile);
+                
+                // 检查临时文件是否成功创建
+                if (File.Exists(tempFile) && new FileInfo(tempFile).Length > 0)
+                {
+                    // 备份原文件
+                    if (File.Exists(cfgFile))
+                    {
+                        string backupFile = cfgFile + ".bak";
+                        File.Copy(cfgFile, backupFile, true);
+                    }
+                    
+                    // 用临时文件替换原文件
+                    File.Copy(tempFile, cfgFile, true);
+                }
+            }
+            catch (Exception ex)
+            {
+                // 记录错误但不抛出，避免程序崩溃
+                System.Diagnostics.Debug.WriteLine($"保存配置失败: {ex.Message}");
+                
+            }
+            finally
+            {
+                // 清理临时文件
+                if (File.Exists(tempFile))
+                {
+                    try { File.Delete(tempFile); } catch { }
+                }
+            }
+        }
+
+
+        /// <summary>
+        /// 获取备份文件名（带时间戳）
+        /// </summary>
+        private string GetBackupFileName()
+        {
+            string backupDir = Path.Combine(appdir, "Backups");
+            if (!Directory.Exists(backupDir))
+            {
+                Directory.CreateDirectory(backupDir);
+            }
+            
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            return Path.Combine(backupDir, $"{appname}_backup_{timestamp}.xml");
+        }
+
+        /// <summary>
+        /// 清理旧的备份文件（只保留最近5个）
+        /// </summary>
+        private void CleanOldBackups()
+        {
+            try
+            {
+                string backupDir = Path.Combine(appdir, "Backups");
+                if (!Directory.Exists(backupDir)) return;
+                
+                var backupFiles = Directory.GetFiles(backupDir, $"{appname}_backup_*.xml")
+                                        .Select(f => new FileInfo(f))
+                                        .OrderByDescending(f => f.CreationTime)
+                                        .ToList();
+                
+                // 保留最近5个备份，删除更早的
+                if (backupFiles.Count > 5)
+                {
+                    foreach (var oldFile in backupFiles.Skip(5))
+                    {
+                        try
+                        {
+                            oldFile.Delete();
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"清理备份文件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 从备份恢复配置
+        /// </summary>
+        private void RestoreFromBackup()
+        {
+            try
+            {
+                string backupDir = Path.Combine(appdir, "Backups");
+                if (!Directory.Exists(backupDir)) return;
+                
+                // 找到最新的备份文件
+                var backupFiles = Directory.GetFiles(backupDir, $"{appname}_backup_*.xml")
+                                        .Select(f => new FileInfo(f))
+                                        .OrderByDescending(f => f.CreationTime)
+                                        .FirstOrDefault();
+                
+                if (backupFiles != null && backupFiles.Exists && backupFiles.Length > 100)
+                {
+                    File.Copy(backupFiles.FullName, cfgFile, true);
+                    System.Diagnostics.Debug.WriteLine($"从备份恢复配置: {backupFiles.Name}");
+                }
+                else
+                {
+                    // 如果没有有效备份，创建基础配置
+                    LoadDefault();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"从备份恢复失败: {ex.Message}");
+                LoadDefault();
+            }
+        }
+
+        private void ReadCfg()
+        {
+            if (!System.IO.File.Exists(cfgFile))
+            {
+                LoadDefault();
+                return;
+            }
+            try
+            {
+                XmlDocument doc = new XmlDocument();
+                doc.Load(cfgFile);
+                Text = doc.SelectSingleNode("Config/Setting/Title").InnerText;
+                Height = int.Parse(doc.SelectSingleNode("Config/Setting/Height").InnerText);
+                Width = int.Parse(doc.SelectSingleNode("Config/Setting/Width").InnerText);
+                int lx = int.Parse(doc.SelectSingleNode("Config/Setting/LocationX").InnerText);
+                ShowInTaskbar = bool.Parse(doc.SelectSingleNode("Config/Setting/StatusBar").InnerText);
+                ShowIcon = true;//bool.Parse(doc.SelectSingleNode("Config/Setting/WindowIcon").InnerText);
+                int ly = int.Parse(doc.SelectSingleNode("Config/Setting/LocationY").InnerText);
+                hideStart = bool.Parse(doc.SelectSingleNode("Config/Setting/HideStart").InnerText);
+                hideRun = bool.Parse(doc.SelectSingleNode("Config/Setting/HideRun").InnerText);
+                TopMost = bool.Parse(doc.SelectSingleNode("Config/Setting/TopMost").InnerText);
+                noexit = bool.Parse(doc.SelectSingleNode("Config/Setting/NotExit").InnerText);
+                noReadLnk = bool.Parse(doc.SelectSingleNode("Config/Setting/NoReadLnk").InnerText);
+                dClick = bool.Parse(doc.SelectSingleNode("Config/Setting/DoubleClickRun").InnerText);
+                lineSpacing = int.Parse(doc.SelectSingleNode("Config/Setting/LineSpacing").InnerText);
+                columnSpacing = int.Parse(doc.SelectSingleNode("Config/Setting/ColumnSpacing").InnerText);
+                tbwidth = int.Parse(doc.SelectSingleNode("Config/Setting/LabelWidth").InnerText);
+                tbheight = int.Parse(doc.SelectSingleNode("Config/Setting/LabelHeight").InnerText);
+                if (lx + Width <= 0)
+                {
+                    lx = 0;
+                }
+                if (lx >= Screen.PrimaryScreen.Bounds.Width)
+                {
+                    lx = Screen.PrimaryScreen.Bounds.Width - Width;
+                }
+                if (ly + Width <= 0)
+                {
+                    ly = 0;
+                }
+                if (ly >= Screen.PrimaryScreen.Bounds.Height)
+                {
+                    ly = Screen.PrimaryScreen.Bounds.Height - Height;
+                }
+                Location = new Point(lx, ly);
+                panelButton.Dock = (DockStyle)int.Parse(doc.SelectSingleNode("Config/Setting/LabelLocation").InnerText);
+                panelButton.BackColor = Color.FromArgb(int.Parse(doc.SelectSingleNode("Config/Setting/LabelBackColor1").InnerText));
+                colorB2 = Color.FromArgb(int.Parse(doc.SelectSingleNode("Config/Setting/LabelBackColor2").InnerText));
+                colorF1 = Color.FromArgb(int.Parse(doc.SelectSingleNode("Config/Setting/LabelForeColor1").InnerText));
+                colorF2 = Color.FromArgb(int.Parse(doc.SelectSingleNode("Config/Setting/LabelForeColor2").InnerText));
+                try
+                {
+                    hotkeyon = bool.Parse(doc.SelectSingleNode("Config/Setting/HotKeyOn").InnerText);
+                    hotkey1 = doc.SelectSingleNode("Config/Setting/HotKey1").InnerText;
+                    hotkey2 = doc.SelectSingleNode("Config/Setting/HotKey2").InnerText;
+                }
+                catch (Exception)
+                {
+                    DefaultHotKey();
+                }
+                using (XmlNodeList tabs = doc.SelectNodes("Config/Pages/Page"))
+                {
+                    for (int i = 0; i < tabs.Count; i++)
+                    {
+                        AddPage(tabs[i].SelectSingleNode("Name").InnerText);
+                        backimages[i] = tabs[i].SelectSingleNode("BackImage").InnerText;
+                        if (bool.Parse(tabs[i].SelectSingleNode("BackImage").Attributes["On"].Value) && System.IO.File.Exists(backimages[i]))
+                        {
+                            try
+                            {
+                                // 使用副本避免文件锁定
+                                using (Image tempImage = Image.FromFile(backimages[i]))
+                                {
+                                    listViews[i].BackgroundImage = new Bitmap(tempImage);
+                                }
+                            }
+                            catch (Exception)
+                            { }
+                        }
+                        listViews[i].BackgroundImageTiled = bool.Parse(tabs[i].SelectSingleNode("BackImage").Attributes["Tiled"].Value);
+                        listViews[i].ForeColor = Color.FromArgb(int.Parse(tabs[i].SelectSingleNode("ListForeColor").InnerText));
+                        listViews[i].BackColor = Color.FromArgb(int.Parse(tabs[i].SelectSingleNode("ListBackColor").InnerText));
+                        XmlNodeList items = tabs[i].SelectNodes("Data");
+                        foreach (XmlNode item in items)
+                        {
+                            IcoFileInfo icoFileInfo = new IcoFileInfo(item.SelectSingleNode("FullPath").InnerText)
+                            {
+                                Name = item.SelectSingleNode("Name").InnerText,
+                                Args = item.SelectSingleNode("Args").InnerText,
+                                RunAsA = item.SelectSingleNode("RunAs").InnerText.ToLower() == "true"
+                            };
+                            AddFile(icoFileInfo, i);
+                        }
+                    }
+                }
+                // 安全设置选中的页面索引，防止越界
+                int pageIndex = int.Parse(doc.SelectSingleNode("Config/Setting/PageIndex").InnerText);
+                if (pageIndex >= 0 && pageIndex < tabControl.TabPages.Count)
+                {
+                    tabControl.SelectedIndex = pageIndex;
+                }
+                else if (tabControl.TabPages.Count > 0)
+                {
+                    tabControl.SelectedIndex = 0;
+                }
+            }
+            catch (Exception)
+            {
+                RestoreFromBackup(); // 从备份恢复
+                //LoadDefault();
+            }
+            if (hotkeyon)
+            {
+                OnHotKey();
+            }
+        }
+
+        private void OnHotKey()
+        {
+            int cobk;
+            switch (hotkey1)
+            {
+                case "Ctr":
+                    cobk = 2;
+                    break;
+                case "Shift":
+                    cobk = 4;
+                    break;
+                case "Alt":
+                    cobk = 1;
+                    break;
+                case "Ctr+Shift":
+                    cobk = 6;
+                    break;
+                case "Ctr+Alt":
+                    cobk = 3;
+                    break;
+                case "Alt+Shift":
+                    cobk = 5;
+                    break;
+                case "Ctr+Shift+Alt":
+                    cobk = 7;
+                    break;
+                default:
+                    cobk = 0;
+                    break;
+            }
+
+            Keys hotKey = Event.GetKeys(hotkey2);
+            if (!Event.RegisterHotKey(this.Handle, 1, (uint)cobk, hotKey))
+            {
+                MessageBox.Show("热键配置失败！可能该热键被其他应用所占用，已为您关闭热键功能。");
+                hotkeyon = false;
+                return;
+            }
+        }
+        protected override void WndProc(ref Message m)
+        {
+            const int WM_HOTKEY = 0x0312;
+
+            if (m.Msg == WM_HOTKEY)
+            {
+                if (m.WParam.ToString().Equals("1"))
+                {
+                    if (ActiveControl.Focused)
+                    {
+                        Hide();
+                    }
+                    else
+                    {
+                        Show();
+                        if (WindowState == FormWindowState.Minimized)
+                        {
+                            WindowState = FormWindowState.Normal;
+                        }
+                        Activate();
+                    }
+                }
+            }
+            base.WndProc(ref m);
+        }
+
+        private void DefaultHotKey()
+        {
+            hotkeyon = false;
+            hotkey1 = "Ctr";
+            hotkey2 = "F2 键";
+        }
+        private void LoadDefault()
+        {
+            StartPosition = FormStartPosition.CenterScreen;
+            Text = appname;
+            notifyIcon.Text = appname;
+            DefaultHotKey();
+        }
+        #endregion
+
+        #region Method
+        private void RunIcon(string path, string arg, bool runas)
+        {
+            string dir = System.IO.Path.GetDirectoryName(path);
+            if (path.Contains(" "))
+            {
+                path = "\"" + path + "\"";
+            }
+            using (System.Diagnostics.Process p = new System.Diagnostics.Process())
+            {
+                if (runas)
+                {
+                    p.StartInfo.Verb = "runas";
+                }
+                p.StartInfo.UseShellExecute = true;
+                p.StartInfo.FileName = path;
+                p.StartInfo.Arguments = arg;
+                p.StartInfo.WorkingDirectory = dir;
+                p.Start();
+                p.Close();
+            }
+        }
+
+        private void AddLink(string item)
+        {
+            int i = tabControl.SelectedIndex;
+            if (i < 0 || i >= listViews.Count)
+            {
+                return;
+            }
+            
+            try
+            {
+                Type shellType = Type.GetTypeFromProgID("WScript.Shell");
+                dynamic shell = Activator.CreateInstance(shellType);
+                dynamic shortcut = shell.CreateShortcut(item);
+                string path = shortcut.TargetPath;
+                string args = shortcut.Arguments;
+                IcoFileInfo icoFileInfolk = new IcoFileInfo(item)
+                {
+                    Args = args
+                };
+                if (System.IO.File.Exists(path) || System.IO.Directory.Exists(path))
+                {
+                    IcoFileInfo icoFileInfo = new IcoFileInfo(path)
+                    {
+                        Name = icoFileInfolk.Name,
+                        Args = args
+                    };
+                    AddFile(icoFileInfo, i);
+                }
+                else
+                {
+                    AddFile(icoFileInfolk, i);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"无法读取快捷方式:\n{ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void AddFile(IcoFileInfo icoInfoFile, int i)
+        {
+            if (i < 0 || i >= largeImageLists.Count)
+            {
+                return;
+            }
+            
+            // 获取图标,如果为 null 则使用默认图标
+            Icon largeIcon = FilesystemIcons.LargeIcon(icoInfoFile.FullName);
+            Icon mediumIcon = FilesystemIcons.MediumIcon(icoInfoFile.FullName);
+            Icon smallIcon = FilesystemIcons.SmallIcon(icoInfoFile.FullName);
+            
+            largeImageLists[i].Images.Add(largeIcon ?? FilesystemIcons.ICON_FILE_48x);
+            mediumImageLists[i].Images.Add(mediumIcon ?? FilesystemIcons.ICON_FILE_32x);
+            smallImageLists[i].Images.Add(smallIcon ?? FilesystemIcons.ICON_FILE_16x);
+            
+            ListViewItem item = new ListViewItem
+            {
+                Text = icoInfoFile.Name,
+                ImageIndex = largeImageLists[i].Images.Count - 1
+            };
+            item.SubItems.Add(icoInfoFile.FullName);
+            item.SubItems.Add(icoInfoFile.Args);
+            item.SubItems.Add(icoInfoFile.RunAsA.ToString());
+            string tip = $"{item.Text}\n链接：{item.SubItems[1].Text}";
+            if (!string.IsNullOrEmpty(item.SubItems[2].Text))
+            {
+                tip += $"\n参数：{item.SubItems[2].Text}";
+            }
+            item.ToolTipText = tip;
+            listViews[i].Items.Add(item);
+        }
+
+        private void AddFile(string file)
+        {
+            int selectedIndex = tabControl.SelectedIndex;
+            if (selectedIndex < 0 || selectedIndex >= listViews.Count)
+            {
+                return;
+            }
+            
+            IcoFileInfo fileinf = new IcoFileInfo(file);
+            AddFile(fileinf, selectedIndex);
+        }
+
+        private void AddFiles(string[] files)
+        {
+            foreach (string item in files)
+            {
+                if (noReadLnk == (ModifierKeys == Keys.Control) && item.ToLower().EndsWith(".lnk"))
+                {
+                    try
+                    {
+                        AddLink(item);
+                    }
+                    catch (Exception)
+                    {
+                        AddFile(item);
+                    }
+                }
+                else
+                {
+                    AddFile(item);
+                }
+            }
+            WriteCfg();
+        }
+
+        private void AddPage(string pgname)
+        {
+            backimages.Add("");
+            ImageList large = new ImageList
+            {
+                ImageSize = new Size(48, 48),
+                ColorDepth = ColorDepth.Depth32Bit
+            };
+            ImageList medium = new ImageList
+            {
+                ImageSize = new Size(32, 32),
+                ColorDepth = ColorDepth.Depth32Bit
+            };
+            ImageList small = new ImageList
+            {
+                ImageSize = new Size(16, 16),
+                ColorDepth = ColorDepth.Depth32Bit
+            };
+            largeImageLists.Add(large);
+            mediumImageLists.Add(medium);
+            smallImageLists.Add(small);
+            ListView listView = new ListView
+            {
+                LargeImageList = large,
+                //MediumImageList = medium,
+                SmallImageList = small,
+                AllowDrop = true,
+                BorderStyle = BorderStyle.None,
+                Dock = DockStyle.Fill,
+                HideSelection = false,
+                Location = new Point(0, 0),
+                Margin = new Padding(0),
+                Padding = new Padding(0),
+                MultiSelect = false,
+                ShowItemToolTips = true
+                //UseCompatibleStateImageBehavior = false
+            };
+            listView.DragDrop += ListViews_DragDrop;
+            listView.DragOver += ListView_DragOver;
+            listView.ItemDrag += ListView_ItemDrag;
+            listView.MouseClick += ListViews_MouseClick;
+            listView.DoubleClick += ListView_DoubleClick;
+            listView.MouseDown += ListView_MouseDown;
+            listView.Columns.Add("名称", 100, HorizontalAlignment.Left);
+            //listView.Columns.Add("类型", 60, HorizontalAlignment.Left);
+            listView.Columns.Add("路径", 300, HorizontalAlignment.Left);
+            listView.Columns.Add("参数", 100, HorizontalAlignment.Left);
+            listView.Columns.Add("管理员权限", 100, HorizontalAlignment.Left);
+            //listView.ArrangeIcons();
+            listViews.Add(listView);
+            TabPage tabPage = new TabPage
+            {
+                Location = new Point(0),
+                Margin = new Padding(0),
+                //tabPage.Size = new Size(652, 403);
+                Padding = new Padding(0),
+                Text = pgname
+            };
+            tabPage.Controls.Add(listView);
+            tabControl.TabPages.Add(tabPage);
+            Button button = new Button
+            {
+                //BackColor = Color.Transparent,// Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Margin = new Padding(0),
+                Padding = new Padding(0),
+                //Location = new Point(tbwidth * buttons.Count, 0),
+                Size = new Size(tbwidth, tbheight),
+                Text = pgname,
+                UseVisualStyleBackColor = false
+            };
+            //button.FlatAppearance.BorderColor = Color.LightBlue;
+            button.Click += new EventHandler(Button_Click);
+            //button.MouseDown += new MouseEventHandler(Button_MouseDown);
+            buttons.Add(button);
+            panelButton.Controls.Add(button);
+        }
+
+        private void RemovePage(int i)
+        {
+            if (i < 0 || i >= listViews.Count)
+            {
+                return;
+            }
+            
+            // 释放背景图片资源
+            if (listViews[i].BackgroundImage != null)
+            {
+                Image bgImage = listViews[i].BackgroundImage;
+                listViews[i].BackgroundImage = null;
+                bgImage.Dispose();
+            }
+            
+            // 释放图标列表资源
+            if (largeImageLists[i] != null)
+            {
+                largeImageLists[i].Dispose();
+            }
+            if (mediumImageLists[i] != null)
+            {
+                mediumImageLists[i].Dispose();
+            }
+            if (smallImageLists[i] != null)
+            {
+                smallImageLists[i].Dispose();
+            }
+            
+            backimages.RemoveAt(i);
+            listViews.RemoveAt(i);
+            largeImageLists.RemoveAt(i);
+            mediumImageLists.RemoveAt(i);
+            smallImageLists.RemoveAt(i);
+            tabControl.TabPages.RemoveAt(i);
+            
+            // 移除按钮
+            if (i < buttons.Count && buttons[i] != null)
+            {
+                buttons[i].Dispose();
+                buttons.RemoveAt(i);
+            }
+            
+            FitButton();
+            WriteCfg();
+        }
+
+        public void FitButton()
+        {
+            panelButton.Width = tbwidth;
+            panelButton.Height = tbheight;
+            panelButton.Controls.Clear();
+            for (int i = 0; i < buttons.Count; i++)
+            {
+                buttons[i].Size = new Size(tbwidth, tbheight);
+                if (panelButton.Dock == DockStyle.Top || panelButton.Dock == DockStyle.Bottom)
+                {
+                    buttons[i].Location = new Point(tbwidth * i, 0);
+                }
+                else
+                {
+                    buttons[i].Location = new Point(0, tbheight * i);
+                }
+                panelButton.Controls.Add(buttons[i]);
+                if (i == tabControl.SelectedIndex)
+                {
+                    buttons[i].ForeColor = colorF2;
+                    buttons[i].BackColor = colorB2;// Color.LightBlue;
+                }
+                else
+                {
+                    buttons[i].ForeColor = colorF1;
+                    buttons[i].BackColor = Color.Transparent;// Color.White;
+                }
+                buttons[i].FlatAppearance.BorderColor = colorB2;
+            }
+            FormMain_Resize(null, null);
+        }
+        #endregion
+
+        #region MENU
+        private void ContextMenuStripMain_Opening(object sender, CancelEventArgs e)
+        {
+            bool b = listViews.Count > 0 && listViews[tabControl.SelectedIndex].SelectedItems.Count > 0;
+            RunAsAdminToolStripMenuItem.Visible = b;
+            RemoveToolStripMenuItem.Visible = b;
+            ShowFileToolStripMenuItem.Visible = b;
+            EditToolStripMenuItem.Visible = b;
+            toolStripMenuItem1.Visible = tabControl.TabPages.Count > 0;
+            RemovePageToolStripMenuItem.Visible = tabControl.TabPages.Count > 0;
+            ViewToolStripMenuItem.Visible = tabControl.TabPages.Count > 0;
+            AddToolStripMenuItem.Visible = tabControl.TabPages.Count > 0;
+            ClearToolStripMenuItem.Visible = tabControl.TabPages.Count > 0 && listViews[tabControl.SelectedIndex].Items.Count > 0; ;
+            EditPageToolStripMenuItem.Visible = tabControl.TabPages.Count > 0;
+        }
+
+        private void BigIconsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
+            {
+                listViews[tabControl.SelectedIndex].View = View.LargeIcon;
+            }
+        }
+        
+        private void SmallIconsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
+            {
+                listViews[tabControl.SelectedIndex].View = View.SmallIcon;
+            }
+        }
+        
+        private void DetailToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
+            {
+                listViews[tabControl.SelectedIndex].View = View.Details;
+            }
+        }
+        
+        private void ListToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
+            {
+                listViews[tabControl.SelectedIndex].View = View.List;
+            }
+        }
+        
+        private void TileToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
+            {
+                listViews[tabControl.SelectedIndex].View = View.Tile;
+            }
+        }
+
+        private void AddFileToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (OpenFileDialog openFileDialog = new OpenFileDialog())
+            {
+                openFileDialog.Multiselect = true;
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    AddFiles(openFileDialog.FileNames);
+                    WriteCfg();
+                }
+            }
+        }
+
+        private void AddDirToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (FolderBrowserDialog folder = new FolderBrowserDialog())
+            {
+                if (folder.ShowDialog() == DialogResult.OK)
+                {
+                    AddFiles(new string[] { folder.SelectedPath });
+                    WriteCfg();
+                }
+            }
+        }
+
+        private void AddNewToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (EditIco editIco = new EditIco(new IcoFileInfo("")))
+            {
+                editIco.TopMost = TopMost;
+                if (editIco.ShowDialog() == DialogResult.OK)
+                {
+                    AddFile(editIco.f, tabControl.SelectedIndex);
+                    WriteCfg();
+                }
+            }
+        }
+
+        private void RemoveToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            int i = tabControl.SelectedIndex;
+            int j = listViews[i].SelectedItems[0].Index;
+            if (listViews[i].SelectedItems.Count > 0)
+            {
+                if (MessageBox.Show(this, "确定要删除选择的项目吗？", "提示", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+                {
+                    return;
+                }
+                listViews[i].Items.RemoveAt(j);
+                if (j < listViews[i].Items.Count)
+                {
+                    listViews[i].Items[j].Selected = true;
+                }
+                else if (listViews[i].Items.Count > 0)
+                {
+                    listViews[i].Items[j - 1].Selected = true;
+                }
+                WriteCfg();
+            }
+        }
+
+        private void ShowFileToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (tabControl.SelectedIndex < 0 || tabControl.SelectedIndex >= listViews.Count)
+            {
+                return;
+            }
+            
+            if (listViews[tabControl.SelectedIndex].SelectedItems.Count > 0)
+            {
+                try
+                {
+                    using (System.Diagnostics.Process p = new System.Diagnostics.Process())
+                    {
+                        string ffull = listViews[tabControl.SelectedIndex].SelectedItems[0].SubItems[1].Text;
+                        if (ffull.Contains(" "))
+                        {
+                            ffull = "\"" + ffull + "\"";
+                        }
+                        p.StartInfo.FileName = "Explorer.exe";
+                        p.StartInfo.Arguments = "/e,/select," + ffull;
+                        p.Start();
+                        p.Close();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"无法打开文件位置:\n{ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void ClearToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (tabControl.SelectedIndex < 0 || tabControl.SelectedIndex >= listViews.Count)
+            {
+                return;
+            }
+            
+            if (listViews[tabControl.SelectedIndex].Items.Count >= 1 && 
+                MessageBox.Show(this, "确定要删除所有项目？", "提示", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes)
+            {
+                listViews[tabControl.SelectedIndex].Items.Clear();
+                largeImageLists[tabControl.SelectedIndex].Images.Clear();
+                mediumImageLists[tabControl.SelectedIndex].Images.Clear();
+                smallImageLists[tabControl.SelectedIndex].Images.Clear();
+                WriteCfg();
+            }
+        }
+
+        private void RunAsAdminToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            int i1 = tabControl.SelectedIndex;
+            if (i1 < 0 || i1 >= listViews.Count || listViews[i1].SelectedItems.Count != 1)
+            {
+                return;
+            }
+            
+            int i = listViews[i1].SelectedItems[0].Index;
+            string path = listViews[i1].Items[i].SubItems[1].Text;
+            string arg = listViews[i1].Items[i].SubItems[2].Text;
+            try
+            {
+                RunIcon(path, arg, true);
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show($"无法以管理员方式运行:\n{exception.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            if (hideRun)
+            {
+                Hide();
+            }
+        }
+
+        private void EditToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            int i1 = tabControl.SelectedIndex;
+            if (i1 < 0 || i1 >= listViews.Count || listViews[i1].SelectedItems.Count == 0)
+            {
+                return;
+            }
+            
+            int i = listViews[i1].SelectedItems[0].Index;
+            IcoFileInfo f1 = new IcoFileInfo(listViews[i1].SelectedItems[0].SubItems[1].Text)
+            {
+                Name = listViews[i1].SelectedItems[0].Text,
+                Args = listViews[i1].SelectedItems[0].SubItems[2].Text,
+                RunAsA = listViews[i1].SelectedItems[0].SubItems[3].Text.ToLower() == "true"
+            };
+            using (EditIco editIco = new EditIco(f1))
+            {
+                editIco.TopMost = TopMost;
+                if (editIco.ShowDialog() == DialogResult.OK)
+                {
+                    if (listViews[i1].Items[i].SubItems[1].Text != editIco.f.FullName)
+                    {
+                        Icon largeIcon = FilesystemIcons.LargeIcon(editIco.f.FullName);
+                        Icon mediumIcon = FilesystemIcons.MediumIcon(editIco.f.FullName);
+                        Icon smallIcon = FilesystemIcons.SmallIcon(editIco.f.FullName);
+                        
+                        if (largeIcon != null)
+                        {
+                            largeImageLists[i1].Images[listViews[i1].Items[i].ImageIndex] = largeIcon.ToBitmap();
+                        }
+                        if (mediumIcon != null)
+                        {
+                            mediumImageLists[i1].Images[listViews[i1].Items[i].ImageIndex] = mediumIcon.ToBitmap();
+                        }
+                        if (smallIcon != null)
+                        {
+                            smallImageLists[i1].Images[listViews[i1].Items[i].ImageIndex] = smallIcon.ToBitmap();
+                        }
+                    }
+                    listViews[i1].Items[i].Text = editIco.f.Name;
+                    listViews[i1].Items[i].SubItems[1].Text = editIco.f.FullName;
+                    listViews[i1].Items[i].SubItems[2].Text = editIco.f.Args;
+                    listViews[i1].Items[i].SubItems[3].Text = editIco.f.RunAsA.ToString();
+                    string tip = $"{editIco.f.Name}\n链接：{editIco.f.FullName}";
+                    if (!string.IsNullOrEmpty(editIco.f.Args))
+                    {
+                        tip += $"\n参数：{editIco.f.Args}";
+                    }
+                    listViews[i1].Items[i].ToolTipText = tip;
+                    WriteCfg();
+                }
+            }
+        }
+
+        private void EditPageToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (EditPage editPage = new EditPage(this, tabControl.SelectedIndex))
+            {
+                editPage.ShowDialog();
+                WriteCfg();
+            }
+        }
+
+        private void AddPageToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (InputName nameTab = new InputName(null))
+            {
+                nameTab.TopMost = TopMost;
+                if (nameTab.ShowDialog() == DialogResult.OK)
+                {
+                    AddPage(nameTab.name);
+                    tabControl.SelectedIndex = tabControl.TabPages.Count - 1;
+                    FitButton();
+                    WriteCfg();
+                }
+            }
+        }
+
+        private void RemovePageToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            int i = tabControl.SelectedIndex;
+            if (i > -1 && MessageBox.Show(this, "确定要删除选择的页面吗？", "提示", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes)
+            {
+                RemovePage(i);
+            }
+        }
+
+        private void SettingToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            int w1 = tbwidth;
+            int h1 = tbheight;
+            using (Setting setting = new Setting(this))
+            {
+                if (sender == SettingToolStripMenuItem)
+                {
+                    setting.StartPosition = FormStartPosition.CenterParent;
+                }
+                setting.ShowDialog();
+            }
+            if (w1 != tbwidth || h1 != tbheight)
+            {
+                FitButton();
+            }
+            Activate();
+            WriteCfg();
+            notifyIcon.Text = Text;
+            Event.UnregisterHotKey(Handle, 1);
+            if (hotkeyon)
+            {
+                OnHotKey();
+            }
+        }
+
+        private void ExitToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            goexit = true;
+            Close();
+        }
+        #endregion
+
+        private void 软件版本ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (SWVersion version = new SWVersion())
+            {
+                version.StartPosition = FormStartPosition.CenterParent;
+                version.TopMost = TopMost;
+                version.ShowDialog();
+            }
+        }
+
+        private void toolStripTextBox1_Click_1(object sender, EventArgs e)
+        {
+            MessageBox.Show(this, "PingBox 是一款免费软件，无需激活。\n感谢您的使用！", "软件信息", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void 页面ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (InputName nameTab = new InputName(null))
+            {
+                nameTab.TopMost = TopMost;
+                if (nameTab.ShowDialog() == DialogResult.OK)
+                {
+                    AddPage(nameTab.name);
+                    tabControl.SelectedIndex = tabControl.TabPages.Count - 1;
+                    FitButton();
+                    WriteCfg();
+                }
+            }
+        }
+
+        private void 文件ToolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            using (OpenFileDialog openFileDialog = new OpenFileDialog())
+            {
+                openFileDialog.Multiselect = true;
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    AddFiles(openFileDialog.FileNames);
+                    WriteCfg();
+                }
+            }
+        }
+
+        private void 文件夹ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (FolderBrowserDialog folder = new FolderBrowserDialog())
+            {
+                if (folder.ShowDialog() == DialogResult.OK)
+                {
+                    AddFiles(new string[] { folder.SelectedPath });
+                    WriteCfg();
+                }
+            }
+        }
+
+        private void 大图标ToolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
+            {
+                listViews[tabControl.SelectedIndex].View = View.LargeIcon;
+            }
+        }
+
+        private void 中图标ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
+            {
+                // 中等图标视图 - WinForms ListView 默认不直接支持中图标
+                // 可以通过设置 SmallIcon 并调整 ImageList 大小来模拟
+                ListView currentListView = listViews[tabControl.SelectedIndex];
+                currentListView.View = View.LargeIcon;
+                currentListView.LargeImageList = mediumImageLists[tabControl.SelectedIndex];
+            }
+        }
+
+        private void 小图标ToolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
+            {
+                listViews[tabControl.SelectedIndex].View = View.SmallIcon;
+            }
+        }
+
+        private void 详细列表ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
+            {
+                listViews[tabControl.SelectedIndex].View = View.Details;
+            }
+        }
+        
+        private void 列表ToolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
+            {
+                listViews[tabControl.SelectedIndex].View = View.List;
+            }
+        }
+
+        private void 平铺ToolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
+            {
+                listViews[tabControl.SelectedIndex].View = View.Tile;
+            }
+        }
+
+    }
+
+    public class IcoFileInfo
+    {
+        public IcoFileInfo(string filename)
+        {
+            FullName = filename ?? "";
+            Args = "";
+            RunAsA = false;
+            
+            // 安全处理文件名提取
+            if (string.IsNullOrEmpty(filename))
+            {
+                NameWithEx = "";
+                Name = "";
+            }
+            else
+            {
+                try
+                {
+                    NameWithEx = System.IO.Path.GetFileName(filename);
+                    if (string.IsNullOrEmpty(NameWithEx))
+                    {
+                        Name = "";
+                    }
+                    else
+                    {
+                        // 移除扩展名
+                        string nameWithoutExt = NameWithEx.Trim('.');
+                        if (nameWithoutExt.Contains("."))
+                        {
+                            int lastDotIndex = nameWithoutExt.LastIndexOf(".");
+                            Name = nameWithoutExt.Substring(0, lastDotIndex);
+                        }
+                        else
+                        {
+                            Name = nameWithoutExt;
+                        }
+                    }
+                }
+                catch
+                {
+                    NameWithEx = filename;
+                    Name = filename;
+                }
+            }
+        }
+        public string Name { get; set; }
+        public string NameWithEx { get; set; }
+        public string FullName { set; get; }
+        public string Args { set; get; }
+        public bool RunAsA { set; get; }
+    }
+}
