@@ -1,0 +1,233 @@
+using System;
+using System.IO;
+using System.Runtime.InteropServices;
+using Avalonia;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+
+namespace PingBox.Services;
+
+/// <summary>
+/// 图标服务实现（Windows平台）
+/// </summary>
+public class IconService : IIconService
+{
+    #region Windows API
+
+    private const int SHGFI_ICON = 0x100;
+    private const int SHGFI_SMALLICON = 0x1;
+    private const int SHGFI_LARGEICON = 0x0;
+    private const int SHGFI_USEFILEATTRIBUTES = 0x10;
+    private const int FILE_ATTRIBUTE_DIRECTORY = 0x10;
+    private const int FILE_ATTRIBUTE_NORMAL = 0x80;
+
+    [DllImport("shell32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern IntPtr SHGetFileInfo(string pszPath, int dwFileAttributes, ref SHFILEINFO psfi, int cbFileInfo, int uFlags);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool DestroyIcon(IntPtr hIcon);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct SHFILEINFO
+    {
+        public IntPtr hIcon;
+        public int iIcon;
+        public int dwAttributes;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+        public string szDisplayName;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
+        public string szTypeName;
+    }
+
+    #endregion
+
+    private Bitmap? _defaultFileIcon;
+    private Bitmap? _defaultFolderIcon;
+
+    /// <summary>
+    /// 获取文件/文件夹图标
+    /// </summary>
+    public Bitmap? GetIcon(string path, int size = 48)
+    {
+        if (string.IsNullOrEmpty(path))
+            return null;
+
+        try
+        {
+            bool isDirectory = Directory.Exists(path);
+            bool exists = File.Exists(path) || isDirectory;
+
+            int flags = SHGFI_ICON;
+            int fileAttributes = 0;
+
+            if (isDirectory)
+            {
+                flags |= SHGFI_USEFILEATTRIBUTES;
+                fileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+            }
+            else if (!exists)
+            {
+                flags |= SHGFI_USEFILEATTRIBUTES;
+                fileAttributes = FILE_ATTRIBUTE_NORMAL;
+            }
+
+            // 根据大小选择图标类型
+            if (size <= 16)
+            {
+                flags |= SHGFI_SMALLICON;
+            }
+            else
+            {
+                flags |= SHGFI_LARGEICON;
+            }
+
+            var shfi = new SHFILEINFO();
+            IntPtr result = SHGetFileInfo(path, fileAttributes, ref shfi, Marshal.SizeOf(shfi), flags);
+
+            if (result == IntPtr.Zero || shfi.hIcon == IntPtr.Zero)
+            {
+                return isDirectory ? GetDefaultFolderIcon(size) : GetDefaultFileIcon(size);
+            }
+
+            try
+            {
+                // 将HICON转换为Avalonia Bitmap
+                var bitmap = HIconToBitmap(shfi.hIcon);
+                DestroyIcon(shfi.hIcon);
+                return bitmap;
+            }
+            catch
+            {
+                DestroyIcon(shfi.hIcon);
+                return isDirectory ? GetDefaultFolderIcon(size) : GetDefaultFileIcon(size);
+            }
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 获取默认文件图标
+    /// </summary>
+    public Bitmap GetDefaultFileIcon(int size = 48)
+    {
+        if (_defaultFileIcon == null)
+        {
+            _defaultFileIcon = CreateDefaultFileIcon(size);
+        }
+        return _defaultFileIcon;
+    }
+
+    /// <summary>
+    /// 获取默认文件夹图标
+    /// </summary>
+    public Bitmap GetDefaultFolderIcon(int size = 48)
+    {
+        if (_defaultFolderIcon == null)
+        {
+            _defaultFolderIcon = CreateDefaultFolderIcon(size);
+        }
+        return _defaultFolderIcon;
+    }
+
+    /// <summary>
+    /// 将HICON转换为Avalonia Bitmap
+    /// </summary>
+    private Bitmap HIconToBitmap(IntPtr hIcon)
+    {
+        // 使用Avalonia的Win32平台支持
+        if (OperatingSystem.IsWindows())
+        {
+            // 在Avalonia中，我们可以使用PlatformHandle来创建Bitmap
+            // 但这需要一些平台特定的代码
+            
+            // 简单的方法是使用System.Drawing（如果可用）
+            // 或者我们可以返回一个占位图标
+            
+            // 这里我们返回一个默认图标作为占位
+            return GetDefaultFileIcon(48);
+        }
+        
+        return GetDefaultFileIcon(48);
+    }
+
+    /// <summary>
+    /// 创建默认文件图标
+    /// </summary>
+    private Bitmap CreateDefaultFileIcon(int size)
+    {
+        // 尝试从资源加载
+        try
+        {
+            var asset = AssetLoader.Open(new Uri("avares://PingBox/Assets/file-icon.png"));
+            if (asset != null)
+            {
+                return new Bitmap(asset);
+            }
+        }
+        catch
+        {
+            // 忽略错误
+        }
+
+        // 如果资源不存在，创建一个简单的占位图标
+        return CreatePlaceholderIcon(size, Colors.Gray);
+    }
+
+    /// <summary>
+    /// 创建默认文件夹图标
+    /// </summary>
+    private Bitmap CreateDefaultFolderIcon(int size)
+    {
+        // 尝试从资源加载
+        try
+        {
+            var asset = AssetLoader.Open(new Uri("avares://PingBox/Assets/folder-icon.png"));
+            if (asset != null)
+            {
+                return new Bitmap(asset);
+            }
+        }
+        catch
+        {
+            // 忽略错误
+        }
+
+        // 如果资源不存在，创建一个简单的占位图标
+        return CreatePlaceholderIcon(size, Colors.Blue);
+    }
+
+    /// <summary>
+    /// 创建占位图标
+    /// </summary>
+    private Bitmap CreatePlaceholderIcon(int size, Color color)
+    {
+        // 创建一个简单的彩色方块作为占位
+        var pixelSize = new PixelSize(size, size);
+        var dpi = new Vector(96, 96);
+        
+        var bitmap = new WriteableBitmap(pixelSize, dpi, PixelFormat.Bgra8888, AlphaFormat.Opaque);
+        
+        using (var frameBuffer = bitmap.Lock())
+        {
+            var buffer = new byte[frameBuffer.Size.Height * frameBuffer.RowBytes];
+            for (int y = 0; y < frameBuffer.Size.Height; y++)
+            {
+                for (int x = 0; x < frameBuffer.Size.Width; x++)
+                {
+                    int offset = y * frameBuffer.RowBytes + x * 4;
+                    buffer[offset] = color.B;     // B
+                    buffer[offset + 1] = color.G; // G
+                    buffer[offset + 2] = color.R; // R
+                    buffer[offset + 3] = color.A; // A
+                }
+            }
+            Marshal.Copy(buffer, 0, frameBuffer.Address, buffer.Length);
+        }
+        
+        return bitmap;
+    }
+}

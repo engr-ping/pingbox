@@ -1,0 +1,86 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PingBox.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+        x:Class="PingBox.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/pingbox.ico"
+        Title="{Binding Title}"
+        Width="{Binding Width}"
+        Height="{Binding Height}"
+        ShowInTaskbar="{Binding ShowInTaskbar}"
+        Topmost="{Binding TopMost}"
+        WindowStartupLocation="CenterScreen">
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- 顶部工具栏 -->
+        <Border Grid.Row="0" Background="{DynamicResource SystemRegionColor}" Padding="5">
+            <Grid ColumnDefinitions="*,Auto">
+                <!-- 占位符 -->
+                <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="{Binding Title}" FontWeight="Bold"/>
+
+                <!-- 右侧按钮 -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5">
+                    <Button Content="添加程序" Padding="10,5" ToolTip.Tip="添加程序到当前页面" Command="{Binding AddProgramCommand}"/>
+                    <Button Content="设置" Padding="10,5" ToolTip.Tip="打开设置" Click="ShowSettingsButton_Click"/>
+                    <Button Content="关于" Padding="10,5" ToolTip.Tip="关于PingBox" Click="ShowAboutButton_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 主内容区域 -->
+        <TabControl Grid.Row="1"
+                    ItemsSource="{Binding Pages}"
+                    SelectedIndex="{Binding SelectedIndex}"
+                    Background="{DynamicResource SystemRegionColor}">
+            <TabControl.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding Name}" />
+                </DataTemplate>
+            </TabControl.ItemTemplate>
+            <TabControl.ContentTemplate>
+                <DataTemplate x:DataType="vm:PageViewModel">
+                    <ScrollViewer>
+                        <ItemsControl ItemsSource="{Binding Items}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Margin="10"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PageItemViewModel">
+                                    <Button Width="100" Height="120" Margin="10" Padding="5"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Command="{Binding RunCommand}">
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="打开" Command="{Binding RunCommand}"/>
+                                                <MenuItem Header="在资源管理器中显示" Command="{Binding ShowInExplorerCommand}"/>
+                                                <MenuItem Header="删除" Command="{Binding DeleteCommand}"/>
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                        <StackPanel HorizontalAlignment="Center">
+                                            <Image Source="{Binding Icon}" Width="48" Height="48"/>
+                                            <TextBlock Text="{Binding Name}"
+                                                       Foreground="{DynamicResource SystemBaseHighColor}"
+                                                       TextAlignment="Center"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,5,0,0"
+                                                       FontSize="12"/>
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DataTemplate>
+            </TabControl.ContentTemplate>
+        </TabControl>
+    </Grid>
+</Window>

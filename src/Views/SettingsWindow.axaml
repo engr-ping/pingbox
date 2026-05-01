@@ -1,0 +1,52 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="500"
+        x:Class="PingBox.Views.SettingsWindow"
+        Title="设置 - PingBox"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="WidthAndHeight">
+
+    <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto" ColumnDefinitions="Auto,*">
+        <!-- 通用设置 -->
+        <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                   Text="通用设置" FontSize="16" FontWeight="Bold"
+                   Margin="0,0,0,15"/>
+
+        <CheckBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                  x:Name="chkShowInTaskbar" Content="显示在任务栏"
+                  Margin="0,0,0,10"/>
+
+        <CheckBox Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                  x:Name="chkTopMost" Content="窗口置顶"
+                  Margin="0,0,0,10"/>
+
+        <CheckBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                  x:Name="chkHideOnStart" Content="启动时隐藏"
+                  Margin="0,0,0,15"/>
+
+        <!-- 热键设置 -->
+        <TextBlock Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                   Text="热键设置" FontSize="16" FontWeight="Bold"
+                   Margin="0,0,0,15"/>
+
+        <CheckBox Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
+                  x:Name="chkHotkeyEnabled" Content="启用热键"
+                  Margin="0,0,0,10"/>
+
+        <TextBlock Grid.Row="6" Grid.Column="0" Text="显示/隐藏热键："
+                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+        <TextBox Grid.Row="6" Grid.Column="1" x:Name="txtHotkey"
+                 Width="200" IsReadOnly="True"
+                 ToolTip.Tip="点击后按组合键设置热键"/>
+
+        <!-- 按钮区域 -->
+        <StackPanel Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2"
+                    Orientation="Horizontal" HorizontalAlignment="Right"
+                    Spacing="10" Margin="0,20,0,0">
+            <Button Content="取消" Width="80" Click="OnCancelClick"/>
+            <Button Content="确定" Width="80" Click="OnOkClick"/>
+        </StackPanel>
+    </Grid>
+</Window>
