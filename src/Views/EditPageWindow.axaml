@@ -1,0 +1,116 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="PingBox.Views.EditPageWindow"
+        Title="编辑页面"
+        Width="520" Height="320"
+        MinWidth="460" MinHeight="280"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#0F1725">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.caption">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="#7C8CA8" />
+        </Style>
+
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="#D7E0EF" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="TextBox.field">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="BorderBrush" Value="#9CB0CB" />
+            <Setter Property="Foreground" Value="#1F2937" />
+            <Setter Property="CaretBrush" Value="#1F2937" />
+        </Style>
+
+        <Style Selector="TextBox.field:focus">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="BorderBrush" Value="#5C7DB8" />
+        </Style>
+
+        <Style Selector="TextBox.field:pointerover">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="BorderBrush" Value="#7F98BB" />
+        </Style>
+
+        <Style Selector="TextBox.field /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+
+        <Style Selector="TextBox.field:pointerover /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+
+        <Style Selector="TextBox.field:focus:pointerover">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="BorderBrush" Value="#5C7DB8" />
+        </Style>
+
+        <Style Selector="TextBox.field:focus /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+
+        <Style Selector="TextBox.field:focus:pointerover /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+
+        <Style Selector="Button.secondary">
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Background" Value="#162132" />
+            <Setter Property="BorderBrush" Value="#24344F" />
+            <Setter Property="Foreground" Value="#D7E0EF" />
+        </Style>
+
+        <Style Selector="Button.primary">
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="18,8" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Background" Value="#4F7DFF" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*" Margin="20">
+        <Border Grid.Row="0" Background="#132033" CornerRadius="16" Padding="18,16" BorderBrush="#233654" BorderThickness="1">
+            <StackPanel Spacing="4">
+                <TextBlock Text="页面设置" FontSize="20" FontWeight="Bold" Foreground="#F7FAFF" />
+                <TextBlock Text="修改页面名称，或给页面设置一张背景图。" Classes="caption" />
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="1" Margin="0,14,0,0" Background="#121B2B" CornerRadius="16" Padding="18" BorderBrush="#233654" BorderThickness="1">
+            <Grid RowDefinitions="Auto,14,Auto,14,Auto,*,Auto" ColumnDefinitions="92,*">
+                <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="页面名称" />
+                <TextBox Grid.Row="0" Grid.Column="1" Classes="field" x:Name="txtName" />
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="背景图片" />
+                <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*,10,Auto">
+                    <TextBox Grid.Column="0" Classes="field" x:Name="txtBgImage" Watermark="可选，例如 D:\wallpaper.png" />
+                    <Button Grid.Column="2" Classes="secondary" Content="浏览" Click="BrowseImage_Click" />
+                </Grid>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Classes="label" Text="背景模式" />
+                <CheckBox Grid.Row="4" Grid.Column="1" x:Name="chkTiled" Content="平铺背景图片"
+                          Foreground="#D7E0EF" VerticalAlignment="Center" />
+
+                <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2"
+                            Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                    <Button Classes="secondary" Content="取消" Click="Cancel_Click" />
+                    <Button Classes="primary" Content="保存" Click="Confirm_Click" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

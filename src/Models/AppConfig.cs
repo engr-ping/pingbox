@@ -10,10 +10,11 @@ public class AppConfig
     public AppConfig()
     {
         Title = "PingBox";
-        Width = 800;
-        Height = 600;
+        Width = 1280;
+        Height = 820;
         LocationX = -1;
         LocationY = -1;
+        StartMaximized = false;
         ShowInTaskbar = true;
         HideOnStart = false;
         HideOnRun = false;
@@ -34,6 +35,8 @@ public class AppConfig
         HotkeyEnabled = false;
         HotkeyModifier = "Ctr";
         HotkeyKey = "F2 键";
+        AutoStart = false;
+        ViewMode = ViewMode.LargeIcon;
         Pages = new ObservableCollection<PageInfo>();
     }
 
@@ -61,6 +64,11 @@ public class AppConfig
     /// 窗口Y位置
     /// </summary>
     public int LocationY { get; set; }
+
+    /// <summary>
+    /// 启动时是否最大化（恢复上次关闭状态）
+    /// </summary>
+    public bool StartMaximized { get; set; }
     
     /// <summary>
     /// 是否显示在任务栏
@@ -166,6 +174,16 @@ public class AppConfig
     /// 热键配置数组（用于兼容性）
     /// </summary>
     public string[]? Hotkey { get; set; }
+
+    /// <summary>
+    /// 是否开机自启动
+    /// </summary>
+    public bool AutoStart { get; set; }
+
+    /// <summary>
+    /// 视图模式
+    /// </summary>
+    public ViewMode ViewMode { get; set; }
     
     /// <summary>
     /// 页面列表

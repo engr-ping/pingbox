@@ -23,6 +23,9 @@ public partial class PageViewModel : ObservableObject
     private bool _backgroundImageTiled;
     private string _foreColor;
     private string _backColor;
+    private double _cardWidth = 140;
+    private double _cardHeight = 160;
+    private bool _isListMode;
 
     public PageViewModel(PageInfo pageInfo, IIconService iconService, IProcessService processService, Action saveConfigCallback, Action? postRunAction = null)
     {
@@ -42,6 +45,20 @@ public partial class PageViewModel : ObservableObject
         {
             Items.Add(new PageItemViewModel(item, _iconService, _processService, this, _postRunAction));
         }
+
+        Items.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(SoftwareItems));
+            OnPropertyChanged(nameof(FolderItems));
+            OnPropertyChanged(nameof(FileItems));
+            OnPropertyChanged(nameof(HasSoftware));
+            OnPropertyChanged(nameof(HasFolders));
+            OnPropertyChanged(nameof(HasFiles));
+            OnPropertyChanged(nameof(IsEmpty));
+            OnPropertyChanged(nameof(SoftwareCount));
+            OnPropertyChanged(nameof(FolderCount));
+            OnPropertyChanged(nameof(FileCount));
+        };
     }
 
     public string Name
@@ -74,11 +91,45 @@ public partial class PageViewModel : ObservableObject
         set => SetProperty(ref _backColor, value);
     }
 
+    public double CardWidth
+    {
+        get => _cardWidth;
+        set => SetProperty(ref _cardWidth, value);
+    }
+
+    public double CardHeight
+    {
+        get => _cardHeight;
+        set => SetProperty(ref _cardHeight, value);
+    }
+
+    public bool IsListMode
+    {
+        get => _isListMode;
+        set
+        {
+            if (SetProperty(ref _isListMode, value))
+            {
+                OnPropertyChanged(nameof(IsIconMode));
+            }
+        }
+    }
+
+    public bool IsIconMode => !_isListMode;
+
     public ObservableCollection<PageItemViewModel> Items { get; }
 
     public IEnumerable<PageItemViewModel> SoftwareItems => Items.Where(item => item.Type == PageItemType.Software);
     public IEnumerable<PageItemViewModel> FolderItems => Items.Where(item => item.Type == PageItemType.Folder);
     public IEnumerable<PageItemViewModel> FileItems => Items.Where(item => item.Type == PageItemType.File);
+
+    public bool HasSoftware => Items.Any(i => i.Type == PageItemType.Software);
+    public bool HasFolders => Items.Any(i => i.Type == PageItemType.Folder);
+    public bool HasFiles => Items.Any(i => i.Type == PageItemType.File);
+    public bool IsEmpty => Items.Count == 0;
+    public int SoftwareCount => Items.Count(i => i.Type == PageItemType.Software);
+    public int FolderCount => Items.Count(i => i.Type == PageItemType.Folder);
+    public int FileCount => Items.Count(i => i.Type == PageItemType.File);
 
     public void AddItem(PageItem item)
     {

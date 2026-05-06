@@ -51,6 +51,7 @@ public class ConfigService : IConfigService
                 config.Height = GetNodeIntValue(settingNode, "Height", 600);
                 config.LocationX = GetNodeIntValue(settingNode, "LocationX", -1);
                 config.LocationY = GetNodeIntValue(settingNode, "LocationY", -1);
+                config.StartMaximized = GetNodeBoolValue(settingNode, "WindowMaximized", false);
                 config.ShowInTaskbar = GetNodeBoolValue(settingNode, "StatusBar", true);
                 config.HideOnStart = GetNodeBoolValue(settingNode, "HideStart", false);
                 config.HideOnRun = GetNodeBoolValue(settingNode, "HideRun", false);
@@ -71,6 +72,8 @@ public class ConfigService : IConfigService
                 config.HotkeyEnabled = GetNodeBoolValue(settingNode, "HotKeyOn", false);
                 config.HotkeyModifier = GetNodeValue(settingNode, "HotKey1", "Ctr");
                 config.HotkeyKey = GetNodeValue(settingNode, "HotKey2", "F2 键");
+                var viewModeStr = GetNodeValue(settingNode, "ViewMode", "LargeIcon");
+                config.ViewMode = Enum.TryParse<Models.ViewMode>(viewModeStr, out var vm) ? vm : Models.ViewMode.LargeIcon;
             }
             
             // 读取页面
@@ -104,10 +107,23 @@ public class ConfigService : IConfigService
                             itemType = parsedType;
                         }
 
+                        var rawPath = GetNodeValue(itemNode, "FullPath", "");
+                        // 如果路径是相对的，转换为绝对路径
+                        if (!string.IsNullOrEmpty(rawPath) && !Path.IsPathRooted(rawPath))
+                        {
+                            try
+                            {
+                                rawPath = Path.Combine(_appDirectory, rawPath);
+                            }
+                            catch
+                            {
+                                // 转换失败保持原值
+                            }
+                        }
                         var item = new PageItem
                         {
                             Name = GetNodeValue(itemNode, "Name", ""),
-                            FullPath = GetNodeValue(itemNode, "FullPath", ""),
+                            FullPath = rawPath,
                             Arguments = GetNodeValue(itemNode, "Args", ""),
                             RunAsAdmin = GetNodeBoolValue(itemNode, "RunAs", false),
                             Type = itemType
@@ -169,6 +185,7 @@ public class ConfigService : IConfigService
             SetNodeValue(doc, settingNode, "Height", config.Height.ToString());
             SetNodeValue(doc, settingNode, "LocationX", config.LocationX.ToString());
             SetNodeValue(doc, settingNode, "LocationY", config.LocationY.ToString());
+            SetNodeValue(doc, settingNode, "WindowMaximized", config.StartMaximized.ToString());
             SetNodeValue(doc, settingNode, "StatusBar", config.ShowInTaskbar.ToString());
             SetNodeValue(doc, settingNode, "HideStart", config.HideOnStart.ToString());
             SetNodeValue(doc, settingNode, "HideRun", config.HideOnRun.ToString());
@@ -189,6 +206,7 @@ public class ConfigService : IConfigService
             SetNodeValue(doc, settingNode, "HotKeyOn", config.HotkeyEnabled.ToString());
             SetNodeValue(doc, settingNode, "HotKey1", config.HotkeyModifier);
             SetNodeValue(doc, settingNode, "HotKey2", config.HotkeyKey);
+            SetNodeValue(doc, settingNode, "ViewMode", config.ViewMode.ToString());
             
             // 保存页面
             var pagesNode = doc.CreateElement("Pages");
@@ -216,25 +234,7 @@ public class ConfigService : IConfigService
                     pageNode.AppendChild(dataNode);
                     
                     SetNodeValue(doc, dataNode, "Name", item.Name);
-                    
-                    // 处理路径（尝试使用相对路径）
-                    string path = item.FullPath;
-                    if (!string.IsNullOrEmpty(path) && Path.IsPathRooted(path))
-                    {
-                        try
-                        {
-                            var relativePath = GetRelativePath(_appDirectory, path);
-                            if (!string.IsNullOrEmpty(relativePath) && relativePath != path)
-                            {
-                                path = relativePath;
-                            }
-                        }
-                        catch
-                        {
-                            // 保持原路径
-                        }
-                    }
-                    SetNodeValue(doc, dataNode, "FullPath", path);
+                    SetNodeValue(doc, dataNode, "FullPath", item.FullPath);
                     SetNodeValue(doc, dataNode, "Args", item.Arguments);
                     SetNodeValue(doc, dataNode, "RunAs", item.RunAsAdmin.ToString());
                     SetNodeValue(doc, dataNode, "Type", item.Type.ToString());

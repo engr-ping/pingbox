@@ -3,9 +3,10 @@
         xmlns:vm="using:PingBox.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="640"
+        mc:Ignorable="d" d:DesignWidth="1220" d:DesignHeight="820"
         x:Class="PingBox.Views.MainWindow"
         x:DataType="vm:MainViewModel"
+        x:Name="RootWindow"
         Icon="/Assets/pingbox.ico"
         Title="{Binding Title}"
         Width="{Binding Width}"
@@ -13,222 +14,574 @@
         ShowInTaskbar="{Binding ShowInTaskbar}"
         Topmost="{Binding TopMost}"
         WindowStartupLocation="CenterScreen"
-        Background="#F3F6FB"
+        Background="#101522"
+        DragDrop.AllowDrop="True"
         DragDrop.DragOver="MainWindow_DragOver"
         DragDrop.Drop="MainWindow_Drop">
 
-    <Window.Resources>
-        <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F3F6FB" />
-        <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="ToolbarBackgroundBrush" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="CardBackgroundBrush" Color="#F9FBFF" />
-        <SolidColorBrush x:Key="CardBorderBrush" Color="#D6E1EF" />
-        <SolidColorBrush x:Key="MutedTextBrush" Color="#6B7280" />
-    </Window.Resources>
-
     <Window.Styles>
-        <Style Selector="TextBlock.h1">
-            <Setter Property="FontSize" Value="20" />
-            <Setter Property="FontWeight" Value="Bold" />
-            <Setter Property="Foreground" Value="#111827" />
+        <Style Selector="ListBox.page-nav">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
         </Style>
 
-        <Style Selector="Button.toolbar">
-            <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Padding" Value="12,8" />
-            <Setter Property="Background" Value="#F8FAFC" />
-            <Setter Property="BorderBrush" Value="#D1D9E6" />
+        <Style Selector="ListBox.page-nav ListBoxItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#7E8DAA" />
+            <Setter Property="Padding" Value="12,9" />
+            <Setter Property="Margin" Value="0,2" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            CornerRadius="12"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          Foreground="{TemplateBinding Foreground}"
+                                          FontSize="{TemplateBinding FontSize}"
+                                          FontWeight="{TemplateBinding FontWeight}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="ListBox.page-nav ListBoxItem:pointerover">
+            <Setter Property="Background" Value="#1A2235" />
+            <Setter Property="Foreground" Value="#D8E1F1" />
+        </Style>
+
+        <Style Selector="ListBox.page-nav ListBoxItem:selected">
+            <Setter Property="Background" Value="#22365C" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="Button.tb">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Foreground" Value="#97A4BD" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Height" Value="34" />
+        </Style>
+
+        <Style Selector="Button.tb:pointerover">
+            <Setter Property="Background" Value="#1D2436" />
+            <Setter Property="Foreground" Value="#EEF4FF" />
+        </Style>
+
+        <Style Selector="Button.tb.active">
+            <Setter Property="Background" Value="#27406F" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#4F7DFF" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <Style Selector="Button.primary:pointerover">
+            <Setter Property="Background" Value="#3F70F6" />
+        </Style>
+
+        <Style Selector="Button.software-card">
+            <Setter Property="Background" Value="#141E33" />
+            <Setter Property="BorderBrush" Value="#284474" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="#111827" />
-        </Style>
-
-        <Style Selector="Button.card">
             <Setter Property="CornerRadius" Value="14" />
-            <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="10" />
-            <Setter Property="MinWidth" Value="120" />
-            <Setter Property="MinHeight" Value="140" />
-            <Setter Property="Foreground" Value="#111827" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
 
-        <Style Selector="Button.card:pointerover">
-            <Setter Property="Background" Value="#E7EFFB" />
+        <Style Selector="Button.software-card:pointerover">
+            <Setter Property="Background" Value="#1B2A47" />
+            <Setter Property="BorderBrush" Value="#5E96FF" />
         </Style>
 
-        <Style Selector="Button.card:pressed">
-            <Setter Property="Background" Value="#DCE9F7" />
+        <Style Selector="Button.folder-card">
+            <Setter Property="Background" Value="#261B0C" />
+            <Setter Property="BorderBrush" Value="#664111" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="Button.folder-card:pointerover">
+            <Setter Property="Background" Value="#33240E" />
+            <Setter Property="BorderBrush" Value="#F5B338" />
+        </Style>
+
+        <Style Selector="Button.file-card">
+            <Setter Property="Background" Value="#0D201B" />
+            <Setter Property="BorderBrush" Value="#1C5A4A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="Button.file-card:pointerover">
+            <Setter Property="Background" Value="#132C24" />
+            <Setter Property="BorderBrush" Value="#28C796" />
+        </Style>
+
+        <Style Selector="Button.list-row">
+            <Setter Property="Background" Value="#0E1828" />
+            <Setter Property="BorderBrush" Value="#1E3050" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+
+        <Style Selector="Button.list-row:pointerover">
+            <Setter Property="Background" Value="#1C2E4A" />
+        </Style>
+
+        <Style Selector="TextBox.search">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="BorderBrush" Value="#9CB0CB" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#1F2937" />
+            <Setter Property="CaretBrush" Value="#1F2937" />
+        </Style>
+
+        <Style Selector="TextBox.search:pointerover">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="BorderBrush" Value="#7F98BB" />
+            <Setter Property="Foreground" Value="#1F2937" />
+        </Style>
+
+        <Style Selector="TextBox.search /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+
+        <Style Selector="TextBox.search:pointerover /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+
+        <Style Selector="TextBox.search:focus">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="BorderBrush" Value="#5C7DB8" />
+            <Setter Property="Foreground" Value="#1F2937" />
+        </Style>
+
+        <Style Selector="TextBox.search:focus /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+
+        <Style Selector="TextBox.search:focus:pointerover">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="BorderBrush" Value="#5C7DB8" />
+            <Setter Property="Foreground" Value="#1F2937" />
+        </Style>
+
+        <Style Selector="TextBox.search:focus:pointerover /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
         </Style>
     </Window.Styles>
 
-    <Grid RowDefinitions="Auto,Auto,*" Background="{StaticResource WindowBackgroundBrush}">
-        <Border Grid.Row="0" Background="{StaticResource ToolbarBackgroundBrush}" Padding="18" BorderBrush="#E5E9F0" BorderThickness="0,0,0,1">
-            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
-                <StackPanel Orientation="Vertical" Spacing="2">
-                        <TextBlock Text="{Binding Title}" Classes="h1" />
+    <Grid ColumnDefinitions="210,*">
+        <Border Grid.Column="0" Background="#0B101A" Padding="12,14,12,12">
+            <Grid RowDefinitions="Auto,16,Auto,14,*,Auto">
+                <StackPanel Grid.Row="0" Spacing="4">
+                    <TextBlock Text="PingBox" FontSize="20" FontWeight="Bold" Foreground="#F7FAFF" />
+                    <TextBlock Text="桌面快速启动面板" FontSize="10" Foreground="#5D6B86" />
                 </StackPanel>
 
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Classes="toolbar" Content="添加程序" ToolTip.Tip="添加程序到当前页面" Command="{Binding AddProgramCommand}" />
-                    <Button Classes="toolbar" Content="添加目录" ToolTip.Tip="添加目录到当前页面" Command="{Binding AddDirectoryCommand}" />
-                    <Button Classes="toolbar" Content="新增页面" ToolTip.Tip="添加新页面" Command="{Binding AddPageCommand}" />
-                    <Button Classes="toolbar" Content="删除页面" ToolTip.Tip="删除当前页面" Command="{Binding RemovePageCommand}" />
-                    <Button Classes="toolbar" Content="设置" ToolTip.Tip="打开设置" Click="ShowSettingsButton_Click" />
-                    <Button Classes="toolbar" Content="关于" ToolTip.Tip="关于PingBox" Click="ShowAboutButton_Click" />
+                <Border Grid.Row="2" Background="#121B2B" CornerRadius="12"
+                        BorderBrush="#1E3048" BorderThickness="1" Padding="1">
+                    <TextBox Classes="search"
+                             Background="#F3F6FB"
+                             Foreground="#1F2937"
+                             CaretBrush="#1F2937"
+                             BorderThickness="0"
+                             Padding="9,7"
+                             FontSize="11"
+                             FontWeight="SemiBold"
+                             Watermark="搜索名称或路径..."
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                </Border>
+
+                <StackPanel Grid.Row="4" Spacing="8">
+                    <TextBlock Text="页面导航" FontSize="9" Foreground="#516079" Margin="4,0,0,0" />
+                    <ListBox Classes="page-nav"
+                             ItemsSource="{Binding Pages}"
+                             SelectedIndex="{Binding SelectedIndex, Mode=TwoWay}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PageViewModel">
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <Border Width="8" Height="8" CornerRadius="4"
+                                            Background="#7AA2FF"
+                                            VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Name}"
+                                               Margin="10,0,0,0"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </StackPanel>
+
+                <StackPanel Grid.Row="5" Spacing="6">
+                    <Border Background="#121B2B" CornerRadius="12" Padding="8">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="拖拽支持" FontSize="10" FontWeight="SemiBold" Foreground="#E7EEF9" />
+                            <TextBlock Text="可直接拖入 exe、文件夹和文件" FontSize="9" Foreground="#6B7891" />
+                        </StackPanel>
+                    </Border>
+                    <Button Classes="tb" HorizontalAlignment="Stretch" Click="ShowSettingsButton_Click" Content="设置" />
+                    <Button Classes="tb" HorizontalAlignment="Stretch" Click="ShowAboutButton_Click" Content="关于" />
                 </StackPanel>
             </Grid>
         </Border>
 
-        <Border Grid.Row="1" Margin="16,12,16,0" Background="{StaticResource PanelBackgroundBrush}" CornerRadius="14" Padding="12" BorderBrush="#E5E9F0" BorderThickness="1">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-                <TextBox Width="360" Watermark="搜索所有页面..." Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
-                <Button Classes="toolbar" Content="清除" Command="{Binding ClearSearchCommand}" />
-            </StackPanel>
-        </Border>
+        <Grid Grid.Column="1" RowDefinitions="Auto,*" Margin="0">
+            <Border Grid.Row="0" Background="#0F1725" Padding="14,10"
+                    BorderBrush="#1B2638" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{Binding SelectedPage.Name}" FontSize="20" FontWeight="Bold" Foreground="#F7FAFF" />
+                        <TextBlock Text="分类清晰地管理程序、目录和文件。支持右键、拖拽和搜索。" FontSize="11" Foreground="#75839B" />
+                    </StackPanel>
 
-        <Border Grid.Row="2" Margin="16" Background="{StaticResource PanelBackgroundBrush}" CornerRadius="18" Padding="18" BorderBrush="#E5E9F0" BorderThickness="1">
-            <StackPanel Spacing="18">
-                <StackPanel IsVisible="{Binding IsSearchActive}" Spacing="14">
-                    <TextBlock Text="搜索结果" FontSize="16" FontWeight="SemiBold" />
-                    <ItemsControl ItemsSource="{Binding SearchResults}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:SearchResultViewModel">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding PageName}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,10" />
-                                    <ItemsControl ItemsSource="{Binding Items}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <WrapPanel Orientation="Horizontal" ItemWidth="140" ItemHeight="160" />
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="vm:PageItemViewModel">
-                                                <Button Classes="card" Margin="10" Command="{Binding RunCommand}" PointerPressed="PageItem_PointerPressed" PointerReleased="PageItem_PointerReleased">
-                                                    <Button.ContextMenu>
-                                                        <ContextMenu>
-                                                            <MenuItem Header="打开" Command="{Binding RunCommand}" />
-                                                            <MenuItem Header="在资源管理器中显示" Command="{Binding ShowInExplorerCommand}" />
-                                                            <MenuItem Header="删除" Command="{Binding DeleteCommand}" />
-                                                        </ContextMenu>
-                                                    </Button.ContextMenu>
-                                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
-                                                        <Image Source="{Binding Icon}" Width="48" Height="48" />
-                                                        <TextBlock Text="{Binding Name}" Foreground="#111827" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0" FontSize="13" FontWeight="SemiBold" />
-                                                        <TextBlock Text="{Binding CategoryLabel}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
-                                                    </StackPanel>
-                                                </Button>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Button Classes="primary" Content="新增页面" Click="AddPageButton_Click" />
+                        <Button Classes="tb" Content="编辑页面" Click="EditPageButton_Click" />
+                        <Button Classes="tb" Content="删除页面" Command="{Binding RemovePageCommand}" />
+                        <Border Width="1" Height="22" Background="#22314A" Margin="6,0" />
+                        <Button Classes="tb" Content="添加程序" Command="{Binding AddProgramCommand}" />
+                        <Button Classes="tb" Content="添加目录" Command="{Binding AddDirectoryCommand}" />
+                        <Border Width="1" Height="22" Background="#22314A" Margin="6,0" />
+                        <Button Classes="tb" Content="大图" Tag="LargeIcon"
+                                Command="{Binding SetViewModeCommand}" CommandParameter="LargeIcon"
+                                Click="ViewModeButton_Click" />
+                        <Button Classes="tb" Content="小图" Tag="SmallIcon"
+                                Command="{Binding SetViewModeCommand}" CommandParameter="SmallIcon"
+                                Click="ViewModeButton_Click" />
+                        <Button Classes="tb" Content="列表" Tag="List"
+                                Command="{Binding SetViewModeCommand}" CommandParameter="List"
+                                Click="ViewModeButton_Click" />
+                    </StackPanel>
+                </Grid>
+            </Border>
 
-                <TabControl IsVisible="{Binding IsSearchInactive}" ItemsSource="{Binding Pages}" SelectedIndex="{Binding SelectedIndex}" Background="Transparent">
-                    <TabControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding Name}" Margin="0,0,0,0" />
-                        </DataTemplate>
-                    </TabControl.ItemTemplate>
-                    <TabControl.ContentTemplate>
+            <Grid Grid.Row="1" Background="#101522">
+                <ScrollViewer IsVisible="{Binding IsSearchActive}" Padding="14,12">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="搜索结果" FontSize="11" FontWeight="SemiBold" Foreground="#75839B" />
+                        <ItemsControl ItemsSource="{Binding SearchResults}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SearchResultViewModel">
+                                    <StackPanel Spacing="8" Margin="0,0,0,16">
+                                        <TextBlock Text="{Binding PageName}" FontSize="12" FontWeight="SemiBold" Foreground="#C9D6EA" />
+                                        <ItemsControl ItemsSource="{Binding Items}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel Orientation="Horizontal" ItemWidth="118" ItemHeight="126" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:PageItemViewModel">
+                                                        <Button Classes="software-card" Margin="4" Width="110" Height="118"
+                                                            ToolTip.Tip="{Binding Name}"
+                                                            Command="{Binding RunCommand}"
+                                                            PointerReleased="PageItem_PointerReleased">
+                                                        <Button.ContextMenu>
+                                                            <ContextMenu>
+                                                                <MenuItem Header="打开" Command="{Binding RunCommand}" />
+                                                                <MenuItem Header="编辑" Click="EditItem_Click" />
+                                                                <MenuItem Header="在资源管理器中显示" Command="{Binding ShowInExplorerCommand}" />
+                                                                <Separator />
+                                                                <MenuItem Header="删除" Command="{Binding DeleteCommand}" />
+                                                            </ContextMenu>
+                                                        </Button.ContextMenu>
+                                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
+                                                            <Image Source="{Binding Icon}" Width="30" Height="30" />
+                                                            <TextBlock Text="{Binding Name}" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="96" Foreground="#EAF1FF" FontSize="10" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <ContentControl IsVisible="{Binding IsSearchInactive}" Content="{Binding SelectedPage}">
+                    <ContentControl.ContentTemplate>
                         <DataTemplate x:DataType="vm:PageViewModel">
-                            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                                <StackPanel Orientation="Vertical" Spacing="18">
-                                    <StackPanel>
-                                        <TextBlock Text="软件" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" />
-                                        <ItemsControl ItemsSource="{Binding SoftwareItems}">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <WrapPanel Orientation="Horizontal" ItemWidth="140" ItemHeight="160" />
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="vm:PageItemViewModel">
-                                                    <Button Classes="card" Margin="10" Command="{Binding RunCommand}" PointerPressed="PageItem_PointerPressed" PointerReleased="PageItem_PointerReleased">
-                                                        <Button.ContextMenu>
-                                                            <ContextMenu>
-                                                                <MenuItem Header="打开" Command="{Binding RunCommand}" />
-                                                                <MenuItem Header="在资源管理器中显示" Command="{Binding ShowInExplorerCommand}" />
-                                                                <MenuItem Header="删除" Command="{Binding DeleteCommand}" />
-                                                            </ContextMenu>
-                                                        </Button.ContextMenu>
-                                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
-                                                            <Image Source="{Binding Icon}" Width="48" Height="48" />
-                                                            <TextBlock Text="{Binding Name}" Foreground="#111827" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0" FontSize="13" FontWeight="SemiBold" />
-                                                            <TextBlock Text="{Binding FullPath}" Foreground="{StaticResource MutedTextBrush}" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="120" FontSize="10" />
-                                                        </StackPanel>
-                                                    </Button>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
+                            <ScrollViewer Padding="14,12">
+                                <StackPanel Spacing="12">
+                                    <Border Background="#121B2B" CornerRadius="18" BorderBrush="#1F2B40" BorderThickness="1" Padding="14">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Spacing="4">
+                                                <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" Foreground="#F7FAFF" />
+                                                <TextBlock Text="右键项目可编辑；拖入文件即可自动归类。" FontSize="10" Foreground="#7A87A1" />
+                                            </StackPanel>
 
-                                    <StackPanel>
-                                        <TextBlock Text="文件夹" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" />
-                                        <ItemsControl ItemsSource="{Binding FolderItems}">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <WrapPanel Orientation="Horizontal" ItemWidth="140" ItemHeight="160" />
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="vm:PageItemViewModel">
-                                                    <Button Classes="card" Margin="10" Command="{Binding RunCommand}" PointerPressed="PageItem_PointerPressed" PointerReleased="PageItem_PointerReleased">
-                                                        <Button.ContextMenu>
-                                                            <ContextMenu>
-                                                                <MenuItem Header="打开" Command="{Binding RunCommand}" />
-                                                                <MenuItem Header="在资源管理器中显示" Command="{Binding ShowInExplorerCommand}" />
-                                                                <MenuItem Header="删除" Command="{Binding DeleteCommand}" />
-                                                            </ContextMenu>
-                                                        </Button.ContextMenu>
-                                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
-                                                            <Image Source="{Binding Icon}" Width="48" Height="48" />
-                                                            <TextBlock Text="{Binding Name}" Foreground="#111827" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0" FontSize="13" FontWeight="SemiBold" />
-                                                            <TextBlock Text="{Binding FullPath}" Foreground="{StaticResource MutedTextBrush}" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="120" FontSize="10" />
-                                                        </StackPanel>
-                                                    </Button>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                <Border Background="#183154" CornerRadius="999" Padding="10,4">
+                                                    <TextBlock Foreground="#8AB3FF" FontSize="10">
+                                                        <Run Text="软件 " />
+                                                        <Run Text="{Binding SoftwareCount}" />
+                                                    </TextBlock>
+                                                </Border>
+                                                <Border Background="#3A280D" CornerRadius="999" Padding="10,4">
+                                                    <TextBlock Foreground="#F1BE57" FontSize="10">
+                                                        <Run Text="文件夹 " />
+                                                        <Run Text="{Binding FolderCount}" />
+                                                    </TextBlock>
+                                                </Border>
+                                                <Border Background="#123227" CornerRadius="999" Padding="10,4">
+                                                    <TextBlock Foreground="#57D3A3" FontSize="10">
+                                                        <Run Text="文件 " />
+                                                        <Run Text="{Binding FileCount}" />
+                                                    </TextBlock>
+                                                </Border>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
 
-                                    <StackPanel>
-                                        <TextBlock Text="文件" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" />
-                                        <ItemsControl ItemsSource="{Binding FileItems}">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <WrapPanel Orientation="Horizontal" ItemWidth="140" ItemHeight="160" />
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="vm:PageItemViewModel">
-                                                    <Button Classes="card" Margin="10" Command="{Binding RunCommand}" PointerPressed="PageItem_PointerPressed" PointerReleased="PageItem_PointerReleased">
-                                                        <Button.ContextMenu>
-                                                            <ContextMenu>
-                                                                <MenuItem Header="打开" Command="{Binding RunCommand}" />
-                                                                <MenuItem Header="在资源管理器中显示" Command="{Binding ShowInExplorerCommand}" />
-                                                                <MenuItem Header="删除" Command="{Binding DeleteCommand}" />
-                                                            </ContextMenu>
-                                                        </Button.ContextMenu>
-                                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
-                                                            <Image Source="{Binding Icon}" Width="48" Height="48" />
-                                                            <TextBlock Text="{Binding Name}" Foreground="#111827" TextAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,0" FontSize="13" FontWeight="SemiBold" />
-                                                            <TextBlock Text="{Binding FullPath}" Foreground="{StaticResource MutedTextBrush}" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="120" FontSize="10" />
-                                                        </StackPanel>
-                                                    </Button>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
+                                    <Border IsVisible="{Binding HasSoftware}" Background="#0F1B2E" CornerRadius="18" BorderBrush="#223F6D" BorderThickness="1">
+                                        <StackPanel>
+                                            <Border Background="#16345F" CornerRadius="17,17,0,0" Padding="12,8">
+                                                <TextBlock Text="软件" Foreground="#FFFFFF" FontSize="12" FontWeight="SemiBold" />
+                                            </Border>
+                                            <ItemsControl IsVisible="{Binding IsIconMode}" ItemsSource="{Binding SoftwareItems}" Margin="6">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel Orientation="Horizontal" ItemWidth="{Binding CardWidth}" ItemHeight="{Binding CardHeight}" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:PageItemViewModel">
+                                                        <Button Classes="software-card" Margin="4"
+                                                            ToolTip.Tip="{Binding Name}"
+                                                                Command="{Binding RunCommand}"
+                                                                PointerReleased="PageItem_PointerReleased">
+                                                            <Button.ContextMenu>
+                                                                <ContextMenu>
+                                                                    <MenuItem Header="打开" Command="{Binding RunCommand}" />
+                                                                    <MenuItem Header="编辑" Click="EditItem_Click" />
+                                                                    <MenuItem Header="在资源管理器中显示" Command="{Binding ShowInExplorerCommand}" />
+                                                                    <Separator />
+                                                                    <MenuItem Header="删除" Command="{Binding DeleteCommand}" />
+                                                                </ContextMenu>
+                                                            </Button.ContextMenu>
+                                                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
+                                                                <Image Source="{Binding Icon}" Width="30" Height="30" />
+                                                                <TextBlock Text="{Binding Name}" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="96" Foreground="#EAF1FF" FontSize="10" />
+                                                            </StackPanel>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
+                                            <StackPanel IsVisible="{Binding IsListMode}" Margin="0,6,0,0">
+                                                <Border Background="#142744" BorderBrush="#284B7E" BorderThickness="0,0,0,1" Padding="10,6">
+                                                    <Grid ColumnDefinitions="40,220,*,140,70">
+                                                        <TextBlock Grid.Column="1" Text="名称" Foreground="#AFC6ED" FontSize="10" FontWeight="SemiBold" />
+                                                        <TextBlock Grid.Column="2" Text="路径" Foreground="#AFC6ED" FontSize="10" FontWeight="SemiBold" />
+                                                        <TextBlock Grid.Column="3" Text="参数" Foreground="#AFC6ED" FontSize="10" FontWeight="SemiBold" />
+                                                        <TextBlock Grid.Column="4" Text="管理员" Foreground="#AFC6ED" FontSize="10" FontWeight="SemiBold" />
+                                                    </Grid>
+                                                </Border>
+                                                <ItemsControl ItemsSource="{Binding SoftwareItems}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <StackPanel />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="vm:PageItemViewModel">
+                                                            <Button Classes="list-row" ToolTip.Tip="{Binding FullPath}" Command="{Binding RunCommand}" PointerReleased="PageItem_PointerReleased">
+                                                                <Button.ContextMenu>
+                                                                    <ContextMenu>
+                                                                        <MenuItem Header="打开" Command="{Binding RunCommand}" />
+                                                                        <MenuItem Header="编辑" Click="EditItem_Click" />
+                                                                        <MenuItem Header="在资源管理器中显示" Command="{Binding ShowInExplorerCommand}" />
+                                                                        <Separator />
+                                                                        <MenuItem Header="删除" Command="{Binding DeleteCommand}" />
+                                                                    </ContextMenu>
+                                                                </Button.ContextMenu>
+                                                                <Grid ColumnDefinitions="40,220,*,140,70" VerticalAlignment="Center">
+                                                                    <Image Source="{Binding Icon}" Width="16" Height="16" VerticalAlignment="Center" />
+                                                                    <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                                    <TextBlock Grid.Column="2" Text="{Binding FullPath}" TextTrimming="CharacterEllipsis" Foreground="#D0D8E8" FontSize="10" VerticalAlignment="Center" />
+                                                                    <TextBlock Grid.Column="3" Text="{Binding Arguments}" TextTrimming="CharacterEllipsis" Foreground="#B8C5D8" FontSize="10" VerticalAlignment="Center" />
+                                                                    <TextBlock Grid.Column="4" Text="{Binding RunAsAdmin}" Foreground="#B8C5D8" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                                                </Grid>
+                                                            </Button>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border IsVisible="{Binding HasFolders}" Background="#241A0C" CornerRadius="18" BorderBrush="#6D4918" BorderThickness="1">
+                                        <StackPanel>
+                                            <Border Background="#7E5317" CornerRadius="17,17,0,0" Padding="12,8">
+                                                <TextBlock Text="文件夹" Foreground="#FFFFFF" FontSize="12" FontWeight="SemiBold" />
+                                            </Border>
+                                            <ItemsControl IsVisible="{Binding IsIconMode}" ItemsSource="{Binding FolderItems}" Margin="6">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel Orientation="Horizontal" ItemWidth="{Binding CardWidth}" ItemHeight="{Binding CardHeight}" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:PageItemViewModel">
+                                                        <Button Classes="folder-card" Margin="4"
+                                                            ToolTip.Tip="{Binding Name}"
+                                                                Command="{Binding RunCommand}"
+                                                                PointerReleased="PageItem_PointerReleased">
+                                                            <Button.ContextMenu>
+                                                                <ContextMenu>
+                                                                    <MenuItem Header="打开" Command="{Binding RunCommand}" />
+                                                                    <MenuItem Header="编辑" Click="EditItem_Click" />
+                                                                    <MenuItem Header="在资源管理器中显示" Command="{Binding ShowInExplorerCommand}" />
+                                                                    <Separator />
+                                                                    <MenuItem Header="删除" Command="{Binding DeleteCommand}" />
+                                                                </ContextMenu>
+                                                            </Button.ContextMenu>
+                                                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
+                                                                <Image Source="{Binding Icon}" Width="30" Height="30" />
+                                                                <TextBlock Text="{Binding Name}" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="96" Foreground="#FFE3A4" FontSize="10" />
+                                                            </StackPanel>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
+                                            <ItemsControl IsVisible="{Binding IsListMode}" ItemsSource="{Binding FolderItems}" Margin="0,6,0,0">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:PageItemViewModel">
+                                                        <Button Classes="list-row" ToolTip.Tip="{Binding FullPath}" Command="{Binding RunCommand}" PointerReleased="PageItem_PointerReleased">
+                                                            <Button.ContextMenu>
+                                                                <ContextMenu>
+                                                                    <MenuItem Header="打开" Command="{Binding RunCommand}" />
+                                                                    <MenuItem Header="编辑" Click="EditItem_Click" />
+                                                                    <MenuItem Header="在资源管理器中显示" Command="{Binding ShowInExplorerCommand}" />
+                                                                    <Separator />
+                                                                    <MenuItem Header="删除" Command="{Binding DeleteCommand}" />
+                                                                </ContextMenu>
+                                                            </Button.ContextMenu>
+                                                            <Grid ColumnDefinitions="40,220,*,140,70" VerticalAlignment="Center">
+                                                                <Image Source="{Binding Icon}" Width="16" Height="16" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" Foreground="#FFFACD" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="2" Text="{Binding FullPath}" TextTrimming="CharacterEllipsis" Foreground="#E8D8A0" FontSize="10" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="3" Text="{Binding Arguments}" TextTrimming="CharacterEllipsis" Foreground="#D8C888" FontSize="10" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="4" Text="{Binding RunAsAdmin}" Foreground="#D8C888" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                                            </Grid>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border IsVisible="{Binding HasFiles}" Background="#0B1D18" CornerRadius="18" BorderBrush="#1F634D" BorderThickness="1">
+                                        <StackPanel>
+                                            <Border Background="#16664E" CornerRadius="17,17,0,0" Padding="12,8">
+                                                <TextBlock Text="文件" Foreground="#FFFFFF" FontSize="12" FontWeight="SemiBold" />
+                                            </Border>
+                                            <ItemsControl IsVisible="{Binding IsIconMode}" ItemsSource="{Binding FileItems}" Margin="6">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel Orientation="Horizontal" ItemWidth="{Binding CardWidth}" ItemHeight="{Binding CardHeight}" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:PageItemViewModel">
+                                                        <Button Classes="file-card" Margin="4"
+                                                            ToolTip.Tip="{Binding Name}"
+                                                                Command="{Binding RunCommand}"
+                                                                PointerReleased="PageItem_PointerReleased">
+                                                            <Button.ContextMenu>
+                                                                <ContextMenu>
+                                                                    <MenuItem Header="打开" Command="{Binding RunCommand}" />
+                                                                    <MenuItem Header="编辑" Click="EditItem_Click" />
+                                                                    <MenuItem Header="在资源管理器中显示" Command="{Binding ShowInExplorerCommand}" />
+                                                                    <Separator />
+                                                                    <MenuItem Header="删除" Command="{Binding DeleteCommand}" />
+                                                                </ContextMenu>
+                                                            </Button.ContextMenu>
+                                                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
+                                                                <Image Source="{Binding Icon}" Width="30" Height="30" />
+                                                                <TextBlock Text="{Binding Name}" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="96" Foreground="#C2FFE9" FontSize="10" />
+                                                            </StackPanel>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
+                                            <ItemsControl IsVisible="{Binding IsListMode}" ItemsSource="{Binding FileItems}" Margin="0,6,0,0">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:PageItemViewModel">
+                                                        <Button Classes="list-row" ToolTip.Tip="{Binding FullPath}" Command="{Binding RunCommand}" PointerReleased="PageItem_PointerReleased">
+                                                            <Button.ContextMenu>
+                                                                <ContextMenu>
+                                                                    <MenuItem Header="打开" Command="{Binding RunCommand}" />
+                                                                    <MenuItem Header="编辑" Click="EditItem_Click" />
+                                                                    <MenuItem Header="在资源管理器中显示" Command="{Binding ShowInExplorerCommand}" />
+                                                                    <Separator />
+                                                                    <MenuItem Header="删除" Command="{Binding DeleteCommand}" />
+                                                                </ContextMenu>
+                                                            </Button.ContextMenu>
+                                                            <Grid ColumnDefinitions="40,220,*,140,70" VerticalAlignment="Center">
+                                                                <Image Source="{Binding Icon}" Width="16" Height="16" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" Foreground="#F0FFFF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="2" Text="{Binding FullPath}" TextTrimming="CharacterEllipsis" Foreground="#B8E8D8" FontSize="10" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="3" Text="{Binding Arguments}" TextTrimming="CharacterEllipsis" Foreground="#A0E0D0" FontSize="10" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="4" Text="{Binding RunAsAdmin}" Foreground="#A0E0D0" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                                            </Grid>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border IsVisible="{Binding IsEmpty}" Background="#121B2B" CornerRadius="18" BorderBrush="#1F2B40" BorderThickness="1" Padding="36,28">
+                                        <StackPanel HorizontalAlignment="Center" Spacing="10">
+                                            <TextBlock Text="空页面" FontSize="22" Foreground="#30415E" HorizontalAlignment="Center" />
+                                            <TextBlock Text="此页面还没有任何内容" FontSize="13" FontWeight="SemiBold" Foreground="#E2EAF7" HorizontalAlignment="Center" />
+                                            <TextBlock Text="把文件拖到窗口里，或使用上方按钮添加程序和目录" FontSize="11" Foreground="#73809A" HorizontalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
                             </ScrollViewer>
                         </DataTemplate>
-                    </TabControl.ContentTemplate>
-                </TabControl>
-            </StackPanel>
-        </Border>
+                    </ContentControl.ContentTemplate>
+                </ContentControl>
+            </Grid>
+        </Grid>
     </Grid>
 </Window>

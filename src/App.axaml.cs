@@ -1,7 +1,9 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using PingBox.Services;
 using PingBox.ViewModels;
 using PingBox.Views;
@@ -14,14 +16,23 @@ public partial class App : Application
     private IProcessService? _processService;
     private IIconService? _iconService;
     private IHotkeyService? _hotkeyService;
+    private MainViewModel? _mainViewModel;
 
     public override void Initialize()
     {
+        Dispatcher.UIThread.UnhandledException += (_, e) =>
+        {
+            AppLogger.Error("Dispatcher UIThread unhandled exception", e.Exception);
+        };
+
+        AppLogger.Info("Initializing Avalonia application.");
         AvaloniaXamlLoader.Load(this);
     }
 
     public override void OnFrameworkInitializationCompleted()
     {
+        AppLogger.Info("Framework initialization started.");
+
         // 初始化服务
         _configService ??= new ConfigService();
         _processService ??= new ProcessService();
@@ -30,14 +41,86 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var mainViewModel = new MainViewModel(_configService, _processService, _iconService);
-            desktop.MainWindow = new MainWindow(mainViewModel);
+            _mainViewModel = new MainViewModel(_configService, _processService, _iconService);
+            desktop.MainWindow = new MainWindow(_mainViewModel);
+            AppLogger.Info("Main window created.");
 
             // 注册全局热键
-            RegisterGlobalHotkey(mainViewModel);
+            RegisterGlobalHotkey(_mainViewModel);
+
+            // 连接托盘菜单事件
+            SetupTrayIcon();
+
+            // 应用退出时清理资源
+            desktop.Exit += (_, _) =>
+            {
+                AppLogger.Info("Desktop exit requested. Disposing hotkey service.");
+                _hotkeyService?.Dispose();
+            };
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private void SetupTrayIcon()
+    {
+        var trayIcons = TrayIcon.GetIcons(this);
+        if (trayIcons == null || trayIcons.Count == 0)
+        {
+            return;
+        }
+
+        var trayIcon = trayIcons[0];
+
+        // 双击托盘图标：显示/隐藏主窗口
+        trayIcon.Clicked += (_, _) => ToggleMainWindow();
+
+        // 连接菜单项
+        if (trayIcon.Menu is NativeMenu menu)
+        {
+            foreach (var item in menu.Items)
+            {
+                if (item is NativeMenuItem menuItem)
+                {
+                    if (menuItem.Header == "显示/隐藏")
+                    {
+                        menuItem.Click += (_, _) =>
+                        {
+                            AppLogger.Info("Tray menu clicked: 显示/隐藏");
+                            ToggleMainWindow();
+                        };
+                    }
+                    else if (menuItem.Header == "退出")
+                    {
+                        menuItem.Click += (_, _) =>
+                        {
+                            AppLogger.Info("Tray menu clicked: 退出");
+                            _mainViewModel?.SaveConfig();
+                            (ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
+                        };
+                    }
+                }
+            }
+        }
+    }
+
+    private void ToggleMainWindow()
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop &&
+            desktop.MainWindow is MainWindow window)
+        {
+            AppLogger.Info($"ToggleMainWindow invoked. Visible={window.IsVisible}");
+            if (window.IsVisible)
+            {
+                window.Hide();
+            }
+            else
+            {
+                window.Show();
+                window.WindowState = WindowState.Normal;
+                window.Activate();
+            }
+        }
     }
 
     private void RegisterGlobalHotkey(MainViewModel viewModel)
@@ -55,14 +138,17 @@ public partial class App : Application
 
                 if (key != Key.None)
                 {
+                    AppLogger.Info($"Registering global hotkey: key={key}, modifiers={modifiers}");
                     _hotkeyService.Register(key, modifiers, () =>
                     {
+                        AppLogger.Info("Global hotkey triggered.");
                         viewModel.ToggleWindowVisibility();
                     });
                 }
             }
             catch (Exception ex)
             {
+                AppLogger.Error("Failed to register global hotkey", ex);
                 System.Diagnostics.Debug.WriteLine($"注册全局热键失败: {ex.Message}");
             }
         }
@@ -100,9 +186,7 @@ public partial class App : Application
                 case "windows":
                 case "meta":
                 case "super":
-#if WINDOWS
-                    modifiers |= KeyModifiers.Windows;
-#endif
+                    modifiers |= KeyModifiers.Meta;
                     break;
             }
         }

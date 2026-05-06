@@ -1,0 +1,66 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="PingBox.Views.InputDialog"
+        Title="新建页面"
+        Width="320" Height="148"
+        MinWidth="280"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="#F3F6FB">
+
+    <Window.Styles>
+        <Style Selector="Button.action">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="20,7" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+
+        <Style Selector="TextBox.input">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="Foreground" Value="#1F2937" />
+            <Setter Property="BorderBrush" Value="#9CB0CB" />
+            <Setter Property="CaretBrush" Value="#1F2937" />
+        </Style>
+
+        <Style Selector="TextBox.input:focus">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="BorderBrush" Value="#5C7DB8" />
+        </Style>
+
+        <Style Selector="TextBox.input:pointerover">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="BorderBrush" Value="#7F98BB" />
+        </Style>
+
+        <Style Selector="TextBox.input /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+
+        <Style Selector="TextBox.input:pointerover /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+
+        <Style Selector="TextBox.input:focus:pointerover">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="BorderBrush" Value="#5C7DB8" />
+        </Style>
+
+        <Style Selector="TextBox.input:focus /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+
+        <Style Selector="TextBox.input:focus:pointerover /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="20,16,20,16" RowDefinitions="Auto,12,Auto,16,Auto">
+        <TextBlock Grid.Row="0" Text="请输入页面名称：" FontSize="13" Foreground="#374151" />
+        <TextBox Grid.Row="2" Classes="input" x:Name="txtInput" Height="34" Padding="8,4"
+                 KeyDown="OnKeyDown" />
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+            <Button Classes="action" Content="取消" Click="Cancel_Click" />
+            <Button Classes="action" Content="确定" Background="#3B82F6" Foreground="White" Click="Confirm_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

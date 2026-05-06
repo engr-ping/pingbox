@@ -1,18 +1,19 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Windows.Input;
-using Avalonia;
 using Avalonia.Input;
+using Avalonia.Threading;
 
 namespace PingBox.Services;
 
 /// <summary>
-/// 热键服务实现（跨平台）
+/// 热键服务实现（跨平台，Windows 上支持全局热键）
 /// </summary>
 public class HotkeyService : IHotkeyService, IDisposable
 {
-    private static int _nextId = 1;
     private readonly Dictionary<int, (Key key, KeyModifiers modifiers, Action action)> _hotkeys;
+    private WindowsHotkey? _windowsHotkey;
     private bool _disposed;
     private bool _isInitialized;
 
@@ -30,9 +31,19 @@ public class HotkeyService : IHotkeyService, IDisposable
     {
         if (_isInitialized) return;
 
-        // 注意：Avalonia的全局热键支持有限
-        // 这里简化实现，不实际注册全局热键
-        // 在实际应用中，可能需要使用平台特定的API
+        try
+        {
+            // 在 Windows 上初始化全局热键支持
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                _windowsHotkey = new WindowsHotkey(OnWindowsHotkeyPressed);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"热键服务初始化失败: {ex.Message}");
+        }
+
         _isInitialized = true;
     }
 
@@ -47,7 +58,21 @@ public class HotkeyService : IHotkeyService, IDisposable
         if (!_isInitialized)
             Initialize();
 
-        var id = _nextId++;
+        var id = _hotkeys.Count + 1;
+
+        // 尝试在 Windows 上注册全局热键
+        if (_windowsHotkey != null)
+        {
+            try
+            {
+                id = _windowsHotkey.Register(key, modifiers, action);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"注册全局热键失败: {ex.Message}");
+            }
+        }
+
         _hotkeys[id] = (key, modifiers, action);
 
         return id;
@@ -62,6 +87,7 @@ public class HotkeyService : IHotkeyService, IDisposable
             return;
 
         _hotkeys.Remove(id);
+        _windowsHotkey?.Unregister(id);
     }
 
     /// <summary>
@@ -73,12 +99,7 @@ public class HotkeyService : IHotkeyService, IDisposable
             return;
 
         _hotkeys.Clear();
-    }
-
-    private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
-    {
-        // 简化实现：由于Avalonia全局热键支持有限，此方法暂时不实现
-        // 在实际应用中，可以通过窗口的KeyDown事件处理热键
+        _windowsHotkey?.UnregisterAll();
     }
 
     protected virtual void OnHotKeyPressed(int id)
@@ -86,12 +107,33 @@ public class HotkeyService : IHotkeyService, IDisposable
         HotKeyPressed?.Invoke(this, new HotkeyPressedEventArgs { Id = id });
     }
 
+    private void OnWindowsHotkeyPressed(int id)
+    {
+        if (!_hotkeys.TryGetValue(id, out var registered))
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            try
+            {
+                registered.action();
+                OnHotKeyPressed(id);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"执行热键回调失败: {ex.Message}");
+            }
+        });
+    }
+
     public void Dispose()
     {
         if (!_disposed)
         {
-            // 不再需要取消订阅Application事件
             UnregisterAll();
+            _windowsHotkey?.Dispose();
             _disposed = true;
         }
     }
@@ -134,9 +176,7 @@ public class HotkeyService : IHotkeyService, IDisposable
                 case "windows":
                 case "meta":
                 case "super":
-#if WINDOWS
-                    modifiers |= KeyModifiers.Windows;
-#endif
+                    modifiers |= KeyModifiers.Meta;
                     break;
             }
         }
@@ -157,10 +197,8 @@ public class HotkeyService : IHotkeyService, IDisposable
             parts.Add("Alt");
         if (modifiers.HasFlag(KeyModifiers.Shift))
             parts.Add("Shift");
-#if WINDOWS
-        if (modifiers.HasFlag(KeyModifiers.Windows))
+        if (modifiers.HasFlag(KeyModifiers.Meta))
             parts.Add("Win");
-#endif
 
         return string.Join(" + ", parts);
     }
@@ -192,25 +230,5 @@ public class HotkeyService : IHotkeyService, IDisposable
         }
 
         return (key, modifiers);
-    }
-}
-
-/// <summary>
-/// 热键注册辅助类
-/// </summary>
-public class HotkeyRegistration : IDisposable
-{
-    private readonly IHotkeyService _hotkeyService;
-    private readonly int _id;
-
-    public HotkeyRegistration(IHotkeyService hotkeyService, int id)
-    {
-        _hotkeyService = hotkeyService;
-        _id = id;
-    }
-
-    public void Dispose()
-    {
-        _hotkeyService?.Unregister(_id);
     }
 }

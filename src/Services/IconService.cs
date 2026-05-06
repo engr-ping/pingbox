@@ -29,6 +29,25 @@ public class IconService : IIconService
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool DestroyIcon(IntPtr hIcon);
 
+    [DllImport("user32.dll")]
+    private static extern bool GetIconInfo(IntPtr hIcon, out ICONINFO piconinfo);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetDC(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    private static extern int ReleaseDC(IntPtr hwnd, IntPtr hDC);
+
+    [DllImport("gdi32.dll")]
+    private static extern int GetDIBits(IntPtr hdc, IntPtr hbmp, uint uStartScan, uint cScanLines,
+        [Out] byte[]? lpvBits, ref BITMAPINFOHEADER lpbi, uint uUsage);
+
+    [DllImport("gdi32.dll")]
+    private static extern int GetObject(IntPtr hgdiobj, int cbBuffer, out GDIBITMAP lpvObject);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool DeleteObject(IntPtr hObject);
+
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
     private struct SHFILEINFO
     {
@@ -39,6 +58,44 @@ public class IconService : IIconService
         public string szDisplayName;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
         public string szTypeName;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ICONINFO
+    {
+        public bool fIcon;
+        public int xHotspot;
+        public int yHotspot;
+        public IntPtr hbmMask;
+        public IntPtr hbmColor;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct GDIBITMAP
+    {
+        public int bmType;
+        public int bmWidth;
+        public int bmHeight;
+        public int bmWidthBytes;
+        public short bmPlanes;
+        public short bmBitsPixel;
+        public IntPtr bmBits;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct BITMAPINFOHEADER
+    {
+        public int biSize;
+        public int biWidth;
+        public int biHeight;
+        public short biPlanes;
+        public short biBitCount;
+        public int biCompression;
+        public int biSizeImage;
+        public int biXPelsPerMeter;
+        public int biYPelsPerMeter;
+        public int biClrUsed;
+        public int biClrImportant;
     }
 
     #endregion
@@ -140,24 +197,64 @@ public class IconService : IIconService
     }
 
     /// <summary>
-    /// 将HICON转换为Avalonia Bitmap
+    /// 将HICON转换为Avalonia Bitmap（使用GDI GetDIBits）
     /// </summary>
     private Bitmap HIconToBitmap(IntPtr hIcon)
     {
-        // 使用Avalonia的Win32平台支持
-        if (OperatingSystem.IsWindows())
+        if (!GetIconInfo(hIcon, out ICONINFO iconInfo))
+            return GetDefaultFileIcon(48);
+
+        try
         {
-            // 在Avalonia中，我们可以使用PlatformHandle来创建Bitmap
-            // 但这需要一些平台特定的代码
-            
-            // 简单的方法是使用System.Drawing（如果可用）
-            // 或者我们可以返回一个占位图标
-            
-            // 这里我们返回一个默认图标作为占位
+            if (iconInfo.hbmColor == IntPtr.Zero)
+                return GetDefaultFileIcon(48);
+
+            // 获取位图尺寸
+            GetObject(iconInfo.hbmColor, Marshal.SizeOf<GDIBITMAP>(), out GDIBITMAP gdiBmp);
+            int w = gdiBmp.bmWidth > 0 ? gdiBmp.bmWidth : 32;
+            int h = gdiBmp.bmHeight > 0 ? Math.Abs(gdiBmp.bmHeight) : 32;
+
+            var bi = new BITMAPINFOHEADER
+            {
+                biSize = Marshal.SizeOf<BITMAPINFOHEADER>(),
+                biWidth = w,
+                biHeight = -h,   // top-down
+                biPlanes = 1,
+                biBitCount = 32,
+                biCompression = 0
+            };
+
+            var bits = new byte[w * h * 4];
+            IntPtr hDC = GetDC(IntPtr.Zero);
+            try
+            {
+                GetDIBits(hDC, iconInfo.hbmColor, 0, (uint)h, bits, ref bi, 0);
+            }
+            finally
+            {
+                ReleaseDC(IntPtr.Zero, hDC);
+            }
+
+            // Windows gives BGRA; Avalonia Bgra8888 is also BGRA — direct copy works
+            var wb = new WriteableBitmap(
+                new PixelSize(w, h),
+                new Vector(96, 96),
+                PixelFormat.Bgra8888,
+                AlphaFormat.Premul);
+
+            using var fb = wb.Lock();
+            Marshal.Copy(bits, 0, fb.Address, bits.Length);
+            return wb;
+        }
+        catch
+        {
             return GetDefaultFileIcon(48);
         }
-        
-        return GetDefaultFileIcon(48);
+        finally
+        {
+            if (iconInfo.hbmColor != IntPtr.Zero) DeleteObject(iconInfo.hbmColor);
+            if (iconInfo.hbmMask != IntPtr.Zero) DeleteObject(iconInfo.hbmMask);
+        }
     }
 
     /// <summary>

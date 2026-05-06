@@ -8,5 +8,61 @@
 
     <Application.Styles>
         <FluentTheme />
+
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="Foreground" Value="#1F2937" />
+            <Setter Property="BorderBrush" Value="#9CB0CB" />
+            <Setter Property="CaretBrush" Value="#1F2937" />
+        </Style>
+
+        <Style Selector="TextBox:pointerover">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="Foreground" Value="#1F2937" />
+            <Setter Property="BorderBrush" Value="#7F98BB" />
+        </Style>
+
+        <Style Selector="TextBox:focus">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="Foreground" Value="#1F2937" />
+            <Setter Property="BorderBrush" Value="#5C7DB8" />
+        </Style>
+
+        <Style Selector="TextBox:focus:pointerover">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="Foreground" Value="#1F2937" />
+            <Setter Property="BorderBrush" Value="#5C7DB8" />
+        </Style>
+
+        <Style Selector="TextBox /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+
+        <Style Selector="TextBox:pointerover /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+
+        <Style Selector="TextBox:focus /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+
+        <Style Selector="TextBox:focus:pointerover /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
     </Application.Styles>
+
+    <TrayIcon.Icons>
+        <TrayIcons>
+            <TrayIcon Icon="/Assets/pingbox.ico"
+                      ToolTipText="PingBox">
+                <TrayIcon.Menu>
+                    <NativeMenu>
+                        <NativeMenuItem Header="显示/隐藏" />
+                        <NativeMenuItemSeparator />
+                        <NativeMenuItem Header="退出" />
+                    </NativeMenu>
+                </TrayIcon.Menu>
+            </TrayIcon>
+        </TrayIcons>
+    </TrayIcon.Icons>
 </Application>

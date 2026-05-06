@@ -1,5 +1,4 @@
 using System;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -11,12 +10,21 @@ namespace PingBox.Views;
 
 public partial class SettingsWindow : Window
 {
-    private readonly MainViewModel _viewModel;
+    private readonly MainViewModel _viewModel = null!;
     private HotkeyRegistration? _hotkeyRegistration;
+    private CheckBox? _chkShowInTaskbar;
+    private CheckBox? _chkTopMost;
+    private CheckBox? _chkHideOnStart;
+    private CheckBox? _chkNoExit;
+    private CheckBox? _chkHideOnRun;
+    private CheckBox? _chkAutoStart;
+    private CheckBox? _chkHotkeyEnabled;
+    private TextBox? _txtHotkey;
 
     public SettingsWindow()
     {
         InitializeComponent();
+        ResolveControls();
     }
 
     public SettingsWindow(MainViewModel viewModel) : this()
@@ -25,145 +33,103 @@ public partial class SettingsWindow : Window
         LoadSettings();
     }
 
-    private void InitializeComponent()
+    private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+    private void ResolveControls()
     {
-        AvaloniaXamlLoader.Load(this);
+        _chkShowInTaskbar = this.FindControl<CheckBox>("chkShowInTaskbar");
+        _chkTopMost = this.FindControl<CheckBox>("chkTopMost");
+        _chkHideOnStart = this.FindControl<CheckBox>("chkHideOnStart");
+        _chkNoExit = this.FindControl<CheckBox>("chkNoExit");
+        _chkHideOnRun = this.FindControl<CheckBox>("chkHideOnRun");
+        _chkAutoStart = this.FindControl<CheckBox>("chkAutoStart");
+        _chkHotkeyEnabled = this.FindControl<CheckBox>("chkHotkeyEnabled");
+        _txtHotkey = this.FindControl<TextBox>("txtHotkey");
+
+        if (_chkShowInTaskbar == null || _chkTopMost == null || _chkHideOnStart == null ||
+            _chkNoExit == null || _chkHideOnRun == null || _chkAutoStart == null ||
+            _chkHotkeyEnabled == null || _txtHotkey == null)
+        {
+            throw new InvalidOperationException("SettingsWindow controls not found.");
+        }
     }
 
     private void LoadSettings()
     {
         var config = _viewModel.GetConfig();
-        chkShowInTaskbar.IsChecked = config.ShowInTaskbar;
-        chkTopMost.IsChecked = config.TopMost;
-        chkHideOnStart.IsChecked = config.HideOnStart;
-        chkHotkeyEnabled.IsChecked = config.HotkeyEnabled;
-
+        _chkShowInTaskbar!.IsChecked = config.ShowInTaskbar;
+        _chkTopMost!.IsChecked = config.TopMost;
+        _chkHideOnStart!.IsChecked = config.HideOnStart;
+        _chkNoExit!.IsChecked = config.NoExit;
+        _chkHideOnRun!.IsChecked = config.HideOnRun;
+        _chkAutoStart!.IsChecked = AutoStartService.IsEnabled();
+        _chkHotkeyEnabled!.IsChecked = config.HotkeyEnabled;
         if (config.Hotkey != null && config.Hotkey.Length >= 2)
-        {
-            txtHotkey.Text = $"{config.Hotkey[0]} + {config.Hotkey[1]}";
-        }
+            _txtHotkey!.Text = $"{config.Hotkey[0]} + {config.Hotkey[1]}";
     }
 
-    private void OnCancelClick(object? sender, RoutedEventArgs e)
-    {
-        Close();
-    }
+    private void OnCancelClick(object? sender, RoutedEventArgs e) => Close();
 
-    private void OnOkClick(object? sender, RoutedEventArgs e)
-    {
-        SaveSettings();
-        Close();
-    }
+    private void OnOkClick(object? sender, RoutedEventArgs e) { SaveSettings(); Close(); }
 
     private void SaveSettings()
     {
-        if (_viewModel == null) return;
-
         var config = _viewModel.GetConfig();
-        config.ShowInTaskbar = chkShowInTaskbar.IsChecked ?? true;
-        config.TopMost = chkTopMost.IsChecked ?? false;
-        config.HideOnStart = chkHideOnStart.IsChecked ?? false;
-        config.HotkeyEnabled = chkHotkeyEnabled.IsChecked ?? false;
+        config.ShowInTaskbar = _chkShowInTaskbar!.IsChecked ?? true;
+        config.TopMost = _chkTopMost!.IsChecked ?? false;
+        config.HideOnStart = _chkHideOnStart!.IsChecked ?? false;
+        config.NoExit = _chkNoExit!.IsChecked ?? false;
+        config.HideOnRun = _chkHideOnRun!.IsChecked ?? false;
+        config.HotkeyEnabled = _chkHotkeyEnabled!.IsChecked ?? false;
 
-        // 注册或取消热键
-        if (config.HotkeyEnabled)
-        {
-            RegisterHotkey();
-        }
-        else
-        {
-            UnregisterHotkey();
-        }
+        if (_chkAutoStart!.IsChecked ?? false) AutoStartService.Enable();
+        else AutoStartService.Disable();
+
+        if (config.HotkeyEnabled) RegisterHotkey(config);
+        else UnregisterHotkey();
 
         _viewModel.SaveConfig();
     }
 
-    private async void RegisterHotkey()
+    private void RegisterHotkey(Models.AppConfig config)
     {
-        if (_viewModel == null) return;
-
         try
         {
-            var keys = txtHotkey.Text?.Split(new[] { " + " }, StringSplitOptions.RemoveEmptyEntries);
-            if (keys != null && keys.Length >= 2)
-            {
-                var key = ParseKey(keys[0]);
-                var modifiers = ParseModifiers(keys[1]);
+            var text = _txtHotkey!.Text ?? string.Empty;
+            var parts = text.Split(new[] { " + " }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2) return;
 
-                var hotkeyService = App.GetService<IHotkeyService>();
-                var id = hotkeyService.Register(key, modifiers, () =>
-                {
-                    _viewModel.ToggleWindowVisibility();
-                });
-                _hotkeyRegistration = new HotkeyRegistration(() => hotkeyService.Unregister(id));
+            var keyStr = parts[^1].Trim();
+            var modsStr = string.Join(" + ", parts[..^1]);
+            var key = HotkeyService.ParseKey(keyStr);
+            var modifiers = HotkeyService.ParseModifiers(modsStr);
+            if (key == Key.None) return;
 
-                var config = _viewModel.GetConfig();
-                config.Hotkey = new[] { keys[0], keys[1] };
-            }
+            var hotkeyService = App.GetService<IHotkeyService>();
+            if (hotkeyService == null) return;
+
+            UnregisterHotkey();
+            var id = hotkeyService.Register(key, modifiers, () => _viewModel.ToggleWindowVisibility());
+            _hotkeyRegistration = new HotkeyRegistration(() => hotkeyService.Unregister(id));
+            config.Hotkey = new[] { keyStr, modsStr };
         }
         catch (Exception ex)
         {
-            // 可以在这里添加错误处理逻辑
             System.Diagnostics.Debug.WriteLine($"注册热键失败: {ex.Message}");
         }
     }
 
-    private void UnregisterHotkey()
-    {
-        _hotkeyRegistration?.Dispose();
-        _hotkeyRegistration = null;
-    }
-
-    private Key ParseKey(string keyStr)
-    {
-        if (Enum.TryParse(keyStr, true, out Key key))
-        {
-            return key;
-        }
-        return Key.None;
-    }
-
-    private KeyModifiers ParseModifiers(string modifiersStr)
-    {
-        var modifiers = KeyModifiers.None;
-        var parts = modifiersStr.Split('+', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-
-        foreach (var part in parts)
-        {
-            switch (part.ToLower())
-            {
-                case "ctrl":
-                case "control":
-                    modifiers |= KeyModifiers.Control;
-                    break;
-                case "alt":
-                    modifiers |= KeyModifiers.Alt;
-                    break;
-                case "shift":
-                    modifiers |= KeyModifiers.Shift;
-                    break;
-                case "win":
-                case "windows":
-                case "meta":
-                case "super":
-#if WINDOWS
-                    modifiers |= KeyModifiers.Windows;
-#endif
-                    break;
-            }
-        }
-
-        return modifiers;
-    }
+    private void UnregisterHotkey() { _hotkeyRegistration?.Dispose(); _hotkeyRegistration = null; }
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-
-        if (txtHotkey.IsFocused)
+        if (_txtHotkey?.IsFocused == true)
         {
             e.Handled = true;
-            txtHotkey.Text = $"{e.Key} + {e.KeyModifiers}";
+            var modsStr = HotkeyService.ModifiersToString(e.KeyModifiers);
+            var keyStr = HotkeyService.KeyToString(e.Key);
+            _txtHotkey.Text = string.IsNullOrEmpty(modsStr) ? keyStr : $"{modsStr} + {keyStr}";
         }
     }
 }
@@ -171,14 +137,6 @@ public partial class SettingsWindow : Window
 public class HotkeyRegistration : IDisposable
 {
     private readonly Action _unregister;
-
-    public HotkeyRegistration(Action unregister)
-    {
-        _unregister = unregister;
-    }
-
-    public void Dispose()
-    {
-        _unregister?.Invoke();
-    }
+    public HotkeyRegistration(Action unregister) => _unregister = unregister;
+    public void Dispose() => _unregister?.Invoke();
 }

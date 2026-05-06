@@ -1,0 +1,106 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="PingBox.Views.EditItemWindow"
+        Title="编辑项目"
+        Width="480" Height="300"
+        MinWidth="400" MinHeight="260"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#F3F6FB">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="#374151" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBox.field">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="Foreground" Value="#1F2937" />
+            <Setter Property="BorderBrush" Value="#9CB0CB" />
+            <Setter Property="CaretBrush" Value="#1F2937" />
+        </Style>
+
+        <Style Selector="TextBox.field:focus">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="BorderBrush" Value="#5C7DB8" />
+        </Style>
+
+        <Style Selector="TextBox.field:pointerover">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="BorderBrush" Value="#7F98BB" />
+        </Style>
+
+        <Style Selector="TextBox.field /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+
+        <Style Selector="TextBox.field:pointerover /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+
+        <Style Selector="TextBox.field:focus:pointerover">
+            <Setter Property="Background" Value="#F3F6FB" />
+            <Setter Property="BorderBrush" Value="#5C7DB8" />
+        </Style>
+
+        <Style Selector="TextBox.field:focus /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+
+        <Style Selector="TextBox.field:focus:pointerover /template/ Border#border">
+            <Setter Property="Background" Value="#F3F6FB" />
+        </Style>
+        <Style Selector="Button.action">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="24,8" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="90" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- 名称 -->
+        <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="名称" />
+        <TextBox Grid.Row="0" Grid.Column="1" Classes="field" x:Name="txtName" />
+
+        <!-- 路径 -->
+        <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="路径" />
+        <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*,8,Auto">
+            <TextBox Grid.Column="0" Classes="field" x:Name="txtPath" />
+            <Button Grid.Column="2" Classes="action" Content="浏览" Height="34" Padding="12,4" Click="BrowsePath_Click" />
+        </Grid>
+
+        <!-- 参数 -->
+        <TextBlock Grid.Row="4" Grid.Column="0" Classes="label" Text="参数" />
+        <TextBox Grid.Row="4" Grid.Column="1" Classes="field" x:Name="txtArgs" Watermark="可选" />
+
+        <!-- 管理员权限 -->
+        <TextBlock Grid.Row="6" Grid.Column="0" Classes="label" Text="权限" />
+        <CheckBox Grid.Row="6" Grid.Column="1" x:Name="chkRunAsAdmin" Content="以管理员身份运行" />
+
+        <!-- 按钮行 -->
+        <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2"
+                    Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
+            <Button Classes="action" Content="取消" Click="Cancel_Click" />
+            <Button Classes="action" Content="确定" Background="#3B82F6" Foreground="White" Click="Confirm_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

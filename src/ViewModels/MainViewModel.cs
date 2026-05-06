@@ -26,8 +26,11 @@ public partial class MainViewModel : ViewModelBase
     private AppConfig _config;
     private int _selectedIndex;
     private bool _isWindowVisible;
+    private ViewMode _viewMode;
 
     public event Action? RequestHideWindow;
+    public event Action? RequestShowWindow;
+    public event Action? RequestExit;
 
     public MainViewModel(
         IConfigService configService,
@@ -39,13 +42,20 @@ public partial class MainViewModel : ViewModelBase
         _iconService = iconService;
 
         _config = _configService.Load();
+        _config.Width = Math.Max(_config.Width, 1180);
+        _config.Height = Math.Max(_config.Height, 760);
         _selectedIndex = Math.Max(0, Math.Min(_config.SelectedTabIndex, _config.Pages.Count - 1));
         _isWindowVisible = true;
+        _viewMode = _config.ViewMode;
 
         Pages = new ObservableCollection<PageViewModel>();
         foreach (var page in _config.Pages)
         {
-            Pages.Add(new PageViewModel(page, _iconService, _processService, SaveConfig, HandleItemRun));
+            var pageVm = new PageViewModel(page, _iconService, _processService, SaveConfig, HandleItemRun);
+            pageVm.CardWidth = CardWidth;
+            pageVm.CardHeight = CardHeight;
+            pageVm.IsListMode = IsList;
+            Pages.Add(pageVm);
         }
 
         // 如果没有页面，创建一个默认页面
@@ -68,6 +78,13 @@ public partial class MainViewModel : ViewModelBase
         AddProgramCommand = new RelayCommand(AddProgram);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty);
         MinimizeToTrayCommand = new RelayCommand(MinimizeToTray);
+        SetViewModeCommand = new RelayCommand<string>(mode =>
+        {
+            if (Enum.TryParse<ViewMode>(mode, out var vm))
+            {
+                ViewMode = vm;
+            }
+        });
     }
 
     #region Properties
@@ -88,8 +105,20 @@ public partial class MainViewModel : ViewModelBase
     public int SelectedIndex
     {
         get => _selectedIndex;
-        set => SetProperty(ref _selectedIndex, value);
+        set
+        {
+            if (SetProperty(ref _selectedIndex, value))
+            {
+                OnPropertyChanged(nameof(SelectedPage));
+            }
+        }
     }
+
+    /// <summary>
+    /// 当前选中的页面
+    /// </summary>
+    public PageViewModel? SelectedPage =>
+        _selectedIndex >= 0 && _selectedIndex < Pages.Count ? Pages[_selectedIndex] : null;
 
     /// <summary>
     /// 窗口宽度
@@ -100,6 +129,21 @@ public partial class MainViewModel : ViewModelBase
     /// 窗口高度
     /// </summary>
     public int Height => _config.Height;
+
+    /// <summary>
+    /// 窗口X位置
+    /// </summary>
+    public int LocationX => _config.LocationX;
+
+    /// <summary>
+    /// 窗口Y位置
+    /// </summary>
+    public int LocationY => _config.LocationY;
+
+    /// <summary>
+    /// 启动时是否最大化
+    /// </summary>
+    public bool StartMaximized => _config.StartMaximized;
 
     /// <summary>
     /// 是否显示在任务栏
@@ -157,6 +201,53 @@ public partial class MainViewModel : ViewModelBase
     public ICommand AddProgramCommand { get; private set; }
     public ICommand ClearSearchCommand { get; private set; }
     public ICommand MinimizeToTrayCommand { get; private set; }
+    public ICommand SetViewModeCommand { get; private set; }
+
+    public ViewMode ViewMode
+    {
+        get => _viewMode;
+        set
+        {
+            if (SetProperty(ref _viewMode, value))
+            {
+                _config.ViewMode = value;
+                OnPropertyChanged(nameof(IsLargeIcon));
+                OnPropertyChanged(nameof(IsSmallIcon));
+                OnPropertyChanged(nameof(IsList));
+                OnPropertyChanged(nameof(IsNotList));
+                OnPropertyChanged(nameof(CardWidth));
+                OnPropertyChanged(nameof(CardHeight));
+                // 同步通知所有页面
+                foreach (var page in Pages)
+                {
+                    page.CardWidth = CardWidth;
+                    page.CardHeight = CardHeight;
+                    page.IsListMode = IsList;
+                }
+            }
+        }
+    }
+
+    public bool IsLargeIcon => _viewMode == ViewMode.LargeIcon;
+    public bool IsSmallIcon => _viewMode == ViewMode.SmallIcon;
+    public bool IsList => _viewMode == ViewMode.List;
+    public bool IsNotList => _viewMode != ViewMode.List;
+
+    /// <summary>卡片宽度（随视图模式变化）</summary>
+    public double CardWidth => _viewMode switch
+    {
+        ViewMode.SmallIcon => 72,
+        ViewMode.List => 420,
+        _ => 118
+    };
+
+    /// <summary>卡片高度（随视图模式变化）</summary>
+    public double CardHeight => _viewMode switch
+    {
+        ViewMode.SmallIcon => 76,
+        ViewMode.List => 84,
+        _ => 128
+    };
 
     private string _searchText = string.Empty;
     private readonly ObservableCollection<SearchResultViewModel> _searchResults = new();
@@ -360,9 +451,11 @@ public partial class MainViewModel : ViewModelBase
 
         var page = new PageInfo(name);
         var pageVm = new PageViewModel(page, _iconService, _processService, SaveConfig, HandleItemRun);
+        pageVm.CardWidth = CardWidth;
+        pageVm.CardHeight = CardHeight;
         Pages.Add(pageVm);
         SelectedIndex = Pages.Count - 1;
-
+        OnPropertyChanged(nameof(SelectedPage));
         SaveConfig();
     }
 
@@ -379,6 +472,7 @@ public partial class MainViewModel : ViewModelBase
             {
                 SelectedIndex = Pages.Count - 1;
             }
+            OnPropertyChanged(nameof(SelectedPage));
             SaveConfig();
         }
     }
@@ -404,6 +498,14 @@ public partial class MainViewModel : ViewModelBase
     public void ToggleWindowVisibility()
     {
         IsWindowVisible = !IsWindowVisible;
+        if (IsWindowVisible)
+        {
+            RequestShowWindow?.Invoke();
+        }
+        else
+        {
+            RequestHideWindow?.Invoke();
+        }
     }
 
     private void HandleItemRun()
@@ -420,6 +522,7 @@ public partial class MainViewModel : ViewModelBase
     private void MinimizeToTray()
     {
         IsWindowVisible = false;
+        RequestHideWindow?.Invoke();
     }
 
     /// <summary>
@@ -445,11 +548,8 @@ public partial class MainViewModel : ViewModelBase
     /// </summary>
     private void ExitApplication()
     {
-        // 保存配置
         SaveConfig();
-
-        // 发送退出消息
-        // 实际应用中应该使用ApplicationLifetime来退出
+        RequestExit?.Invoke();
     }
 
     /// <summary>
@@ -490,6 +590,18 @@ public partial class MainViewModel : ViewModelBase
         _config.SelectedTabIndex = SelectedIndex;
 
         return _config;
+    }
+
+    /// <summary>
+    /// 保存当前窗口几何与状态
+    /// </summary>
+    public void UpdateWindowPlacement(int width, int height, int locationX, int locationY, bool isMaximized)
+    {
+        _config.Width = Math.Max(width, 980);
+        _config.Height = Math.Max(height, 620);
+        _config.LocationX = locationX;
+        _config.LocationY = locationY;
+        _config.StartMaximized = isMaximized;
     }
 
     #endregion
