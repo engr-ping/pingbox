@@ -27,6 +27,8 @@ public partial class MainViewModel : ViewModelBase
     private int _selectedIndex;
     private bool _isWindowVisible;
 
+    public event Action? RequestHideWindow;
+
     public MainViewModel(
         IConfigService configService,
         IProcessService processService,
@@ -43,7 +45,7 @@ public partial class MainViewModel : ViewModelBase
         Pages = new ObservableCollection<PageViewModel>();
         foreach (var page in _config.Pages)
         {
-            Pages.Add(new PageViewModel(page, _iconService, _processService, SaveConfig));
+            Pages.Add(new PageViewModel(page, _iconService, _processService, SaveConfig, HandleItemRun));
         }
 
         // 如果没有页面，创建一个默认页面
@@ -62,7 +64,9 @@ public partial class MainViewModel : ViewModelBase
         ShowAboutCommand = new RelayCommand(ShowAbout);
         ExitCommand = new RelayCommand(ExitApplication);
         AddPageCommand = new RelayCommand(() => AddPage("新页面"));
+        AddDirectoryCommand = new RelayCommand(AddDirectory);
         AddProgramCommand = new RelayCommand(AddProgram);
+        ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty);
         MinimizeToTrayCommand = new RelayCommand(MinimizeToTray);
     }
 
@@ -113,6 +117,26 @@ public partial class MainViewModel : ViewModelBase
     public bool HideOnStart => _config.HideOnStart;
 
     /// <summary>
+    /// 运行后隐藏窗口
+    /// </summary>
+    public bool HideOnRun => _config.HideOnRun;
+
+    /// <summary>
+    /// 关闭时不退出，隐藏到后台
+    /// </summary>
+    public bool NoExit => _config.NoExit;
+
+    /// <summary>
+    /// 是否读取 .lnk 快捷方式
+    /// </summary>
+    public bool NoReadLnk => _config.NoReadLnk;
+
+    /// <summary>
+    /// 是否双击运行
+    /// </summary>
+    public bool DoubleClickToRun => _config.DoubleClickToRun;
+
+    /// <summary>
     /// 窗口是否可见
     /// </summary>
     public bool IsWindowVisible
@@ -129,8 +153,32 @@ public partial class MainViewModel : ViewModelBase
     public ICommand ShowAboutCommand { get; private set; }
     public ICommand ExitCommand { get; private set; }
     public ICommand AddPageCommand { get; private set; }
+    public ICommand AddDirectoryCommand { get; private set; }
     public ICommand AddProgramCommand { get; private set; }
+    public ICommand ClearSearchCommand { get; private set; }
     public ICommand MinimizeToTrayCommand { get; private set; }
+
+    private string _searchText = string.Empty;
+    private readonly ObservableCollection<SearchResultViewModel> _searchResults = new();
+
+    public string SearchText
+    {
+        get => _searchText;
+        set
+        {
+            if (SetProperty(ref _searchText, value))
+            {
+                UpdateSearchResults();
+                OnPropertyChanged(nameof(IsSearchActive));
+                OnPropertyChanged(nameof(IsSearchInactive));
+            }
+        }
+    }
+
+    public ObservableCollection<SearchResultViewModel> SearchResults => _searchResults;
+
+    public bool IsSearchActive => !string.IsNullOrWhiteSpace(SearchText);
+    public bool IsSearchInactive => string.IsNullOrWhiteSpace(SearchText);
 
     /// <summary>
     /// 添加文件命令
@@ -145,18 +193,109 @@ public partial class MainViewModel : ViewModelBase
         {
             if (File.Exists(file) || Directory.Exists(file))
             {
-                var item = new PageItem
-                {
-                    Name = Path.GetFileNameWithoutExtension(file),
-                    FullPath = file,
-                    Arguments = "",
-                    RunAsAdmin = false
-                };
-                Pages[SelectedIndex].AddItem(item);
+                AddFile(file);
             }
         }
 
         SaveConfig();
+    }
+
+    private void AddFile(string path)
+    {
+        if (SelectedIndex < 0 || SelectedIndex >= Pages.Count || string.IsNullOrEmpty(path))
+            return;
+
+        PageItem? item = null;
+        if (!_config.NoReadLnk && OperatingSystem.IsWindows() && path.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase))
+        {
+            item = ResolveShortcut(path);
+        }
+
+        if (item == null)
+        {
+            item = new PageItem
+            {
+                Name = Path.GetFileNameWithoutExtension(path),
+                FullPath = path,
+                Arguments = string.Empty,
+                RunAsAdmin = false,
+                Type = DetermineItemType(path)
+            };
+        }
+
+        Pages[SelectedIndex].AddItem(item);
+    }
+
+    private PageItemType DetermineItemType(string path)
+    {
+        if (Directory.Exists(path))
+        {
+            return PageItemType.Folder;
+        }
+
+        var extension = Path.GetExtension(path)?.ToLowerInvariant();
+        return extension switch
+        {
+            ".exe" or ".bat" or ".cmd" or ".lnk" => PageItemType.Software,
+            _ => PageItemType.File,
+        };
+    }
+
+    private void UpdateSearchResults()
+    {
+        _searchResults.Clear();
+
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            return;
+        }
+
+        var query = SearchText.Trim();
+        foreach (var page in Pages)
+        {
+            var matchedItems = page.Items
+                .Where(item => item.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+                    || item.FullPath.Contains(query, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (matchedItems.Any())
+            {
+                _searchResults.Add(new SearchResultViewModel(page.Name, matchedItems));
+            }
+        }
+    }
+
+    private PageItem? ResolveShortcut(string shortcutPath)
+    {
+        try
+        {
+            Type? shellType = Type.GetTypeFromProgID("WScript.Shell");
+            if (shellType == null)
+                return null;
+
+            dynamic shell = Activator.CreateInstance(shellType);
+            dynamic shortcut = shell.CreateShortcut(shortcutPath);
+            string target = shortcut.TargetPath;
+            string args = shortcut.Arguments;
+
+            if (string.IsNullOrEmpty(target))
+                return null;
+
+            var pageItem = new PageItem
+            {
+                Name = Path.GetFileNameWithoutExtension(target),
+                FullPath = target,
+                Arguments = args ?? string.Empty,
+                RunAsAdmin = false,
+                Type = DetermineItemType(target)
+            };
+
+            return pageItem;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -175,11 +314,7 @@ public partial class MainViewModel : ViewModelBase
             }
         };
 
-        // 获取主窗口
-        var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.ClassicDesktopStyleApplicationLifetime desktop
-            ? desktop.MainWindow
-            : null;
-
+        var mainWindow = GetMainWindow();
         if (mainWindow != null)
         {
             var result = await dialog.ShowAsync(mainWindow);
@@ -188,6 +323,31 @@ public partial class MainViewModel : ViewModelBase
                 AddFiles(result);
             }
         }
+    }
+
+    private async void AddDirectory()
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = "选择要添加的目录"
+        };
+
+        var mainWindow = GetMainWindow();
+        if (mainWindow != null)
+        {
+            var result = await dialog.ShowAsync(mainWindow);
+            if (!string.IsNullOrEmpty(result))
+            {
+                AddFiles(new[] { result });
+            }
+        }
+    }
+
+    private Window? GetMainWindow()
+    {
+        return Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.ClassicDesktopStyleApplicationLifetime desktop
+            ? desktop.MainWindow
+            : null;
     }
 
     /// <summary>
@@ -199,7 +359,7 @@ public partial class MainViewModel : ViewModelBase
             return;
 
         var page = new PageInfo(name);
-        var pageVm = new PageViewModel(page, _iconService, _processService, SaveConfig);
+        var pageVm = new PageViewModel(page, _iconService, _processService, SaveConfig, HandleItemRun);
         Pages.Add(pageVm);
         SelectedIndex = Pages.Count - 1;
 
@@ -244,6 +404,14 @@ public partial class MainViewModel : ViewModelBase
     public void ToggleWindowVisibility()
     {
         IsWindowVisible = !IsWindowVisible;
+    }
+
+    private void HandleItemRun()
+    {
+        if (HideOnRun)
+        {
+            RequestHideWindow?.Invoke();
+        }
     }
 
     /// <summary>
@@ -298,6 +466,14 @@ public partial class MainViewModel : ViewModelBase
         _config.SelectedTabIndex = SelectedIndex;
 
         _configService.Save(_config);
+        OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(ShowInTaskbar));
+        OnPropertyChanged(nameof(TopMost));
+        OnPropertyChanged(nameof(HideOnStart));
+        OnPropertyChanged(nameof(HideOnRun));
+        OnPropertyChanged(nameof(NoExit));
+        OnPropertyChanged(nameof(NoReadLnk));
+        OnPropertyChanged(nameof(DoubleClickToRun));
     }
 
     /// <summary>

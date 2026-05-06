@@ -13,6 +13,7 @@ namespace PingBox.Services;
 /// </summary>
 public class IconService : IIconService
 {
+#if WINDOWS
     #region Windows API
 
     private const int SHGFI_ICON = 0x100;
@@ -41,6 +42,7 @@ public class IconService : IIconService
     }
 
     #endregion
+#endif
 
     private Bitmap? _defaultFileIcon;
     private Bitmap? _defaultFolderIcon;
@@ -58,6 +60,7 @@ public class IconService : IIconService
             bool isDirectory = Directory.Exists(path);
             bool exists = File.Exists(path) || isDirectory;
 
+#if WINDOWS
             int flags = SHGFI_ICON;
             int fileAttributes = 0;
 
@@ -102,6 +105,9 @@ public class IconService : IIconService
                 DestroyIcon(shfi.hIcon);
                 return isDirectory ? GetDefaultFolderIcon(size) : GetDefaultFileIcon(size);
             }
+#else
+            return isDirectory ? GetDefaultFolderIcon(size) : GetDefaultFileIcon(size);
+#endif
         }
         catch
         {

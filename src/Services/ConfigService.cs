@@ -97,12 +97,20 @@ public class ConfigService : IConfigService
                     // 读取页面项
                     foreach (XmlNode itemNode in pageNode.SelectNodes("Data")!)
                     {
+                        var itemTypeText = GetNodeValue(itemNode, "Type", string.Empty);
+                        var itemType = PageItemType.File;
+                        if (!string.IsNullOrEmpty(itemTypeText) && Enum.TryParse<PageItemType>(itemTypeText, true, out var parsedType))
+                        {
+                            itemType = parsedType;
+                        }
+
                         var item = new PageItem
                         {
                             Name = GetNodeValue(itemNode, "Name", ""),
                             FullPath = GetNodeValue(itemNode, "FullPath", ""),
                             Arguments = GetNodeValue(itemNode, "Args", ""),
-                            RunAsAdmin = GetNodeBoolValue(itemNode, "RunAs", false)
+                            RunAsAdmin = GetNodeBoolValue(itemNode, "RunAs", false),
+                            Type = itemType
                         };
                         page.Items.Add(item);
                     }
@@ -229,6 +237,7 @@ public class ConfigService : IConfigService
                     SetNodeValue(doc, dataNode, "FullPath", path);
                     SetNodeValue(doc, dataNode, "Args", item.Arguments);
                     SetNodeValue(doc, dataNode, "RunAs", item.RunAsAdmin.ToString());
+                    SetNodeValue(doc, dataNode, "Type", item.Type.ToString());
                 }
             }
             

@@ -18,6 +18,7 @@ public class ProcessService : IProcessService
         
         try
         {
+#if WINDOWS
             var startInfo = new ProcessStartInfo
             {
                 FileName = path,
@@ -25,12 +26,20 @@ public class ProcessService : IProcessService
                 UseShellExecute = true,
                 WorkingDirectory = GetDirectory(path)
             };
-            
+
             if (runAsAdmin)
             {
                 startInfo.Verb = "runas";
             }
-            
+#else
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = path,
+                Arguments = arguments,
+                UseShellExecute = true,
+                WorkingDirectory = GetDirectory(path)
+            };
+#endif
             Process.Start(startInfo);
         }
         catch (Exception ex)
@@ -49,11 +58,28 @@ public class ProcessService : IProcessService
         
         try
         {
+#if WINDOWS
             var startInfo = new ProcessStartInfo
             {
                 FileName = "Explorer.exe",
-                Arguments = $"/e,/select,\"{filePath}\""
+                Arguments = $"/e,/select,\"{filePath}\"",
+                UseShellExecute = true
             };
+#elif LINUX
+            var directory = GetDirectory(filePath);
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "xdg-open",
+                Arguments = string.IsNullOrEmpty(directory) ? filePath : directory,
+                UseShellExecute = false
+            };
+#else
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = filePath,
+                UseShellExecute = true
+            };
+#endif
             Process.Start(startInfo);
         }
         catch (Exception ex)
@@ -72,11 +98,26 @@ public class ProcessService : IProcessService
         
         try
         {
+#if WINDOWS
             Process.Start(new ProcessStartInfo
             {
                 FileName = directoryPath,
                 UseShellExecute = true
             });
+#elif LINUX
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "xdg-open",
+                Arguments = directoryPath,
+                UseShellExecute = false
+            });
+#else
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = directoryPath,
+                UseShellExecute = true
+            });
+#endif
         }
         catch (Exception ex)
         {

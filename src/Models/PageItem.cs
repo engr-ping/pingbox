@@ -11,12 +11,14 @@ public class PageItem
         FullPath = string.Empty;
         Arguments = string.Empty;
         RunAsAdmin = false;
+        Type = PageItemType.File;
     }
 
-    public PageItem(string name, string fullPath) : this()
+    public PageItem(string name, string fullPath, PageItemType type = PageItemType.File) : this()
     {
         Name = name;
         FullPath = fullPath;
+        Type = type;
     }
 
     /// <summary>
@@ -38,6 +40,11 @@ public class PageItem
     /// 是否以管理员权限运行
     /// </summary>
     public bool RunAsAdmin { get; set; }
+
+    /// <summary>
+    /// 项目类型
+    /// </summary>
+    public PageItemType Type { get; set; }
     
     /// <summary>
     /// 创建副本
@@ -49,7 +56,8 @@ public class PageItem
             Name = this.Name,
             FullPath = this.FullPath,
             Arguments = this.Arguments,
-            RunAsAdmin = this.RunAsAdmin
+            RunAsAdmin = this.RunAsAdmin,
+            Type = this.Type
         };
     }
 }

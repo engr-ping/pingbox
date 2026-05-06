@@ -14,22 +14,26 @@ public partial class PageItemViewModel : ObservableObject
     private readonly IIconService _iconService;
     private readonly IProcessService _processService;
     private readonly PageViewModel _parentPage;
+    private readonly Action? _postRunAction;
     private string _name;
     private string _fullPath;
     private string _arguments;
     private bool _runAsAdmin;
+    private PageItemType _type;
     private Bitmap? _icon;
 
-    public PageItemViewModel(PageItem item, IIconService iconService, IProcessService processService, PageViewModel parentPage)
+    public PageItemViewModel(PageItem item, IIconService iconService, IProcessService processService, PageViewModel parentPage, Action? postRunAction = null)
     {
         _iconService = iconService;
         _processService = processService;
         _parentPage = parentPage;
+        _postRunAction = postRunAction;
 
         _name = item.Name;
         _fullPath = item.FullPath;
         _arguments = item.Arguments;
         _runAsAdmin = item.RunAsAdmin;
+        _type = item.Type;
 
         // 加载图标
         if (!string.IsNullOrEmpty(_fullPath))
@@ -71,6 +75,20 @@ public partial class PageItemViewModel : ObservableObject
         set => SetProperty(ref _runAsAdmin, value);
     }
 
+    public PageItemType Type
+    {
+        get => _type;
+        set => SetProperty(ref _type, value);
+    }
+
+    public string CategoryLabel => Type switch
+    {
+        PageItemType.Software => "软件",
+        PageItemType.Folder => "文件夹",
+        PageItemType.File => "文件",
+        _ => "文件"
+    };
+
     public Bitmap? Icon => _icon;
 
     /// <summary>
@@ -84,6 +102,7 @@ public partial class PageItemViewModel : ObservableObject
             try
             {
                 _processService.Run(_fullPath, _arguments, _runAsAdmin);
+                _postRunAction?.Invoke();
             }
             catch (Exception ex)
             {
@@ -128,7 +147,8 @@ public partial class PageItemViewModel : ObservableObject
             Name = this.Name,
             FullPath = this.FullPath,
             Arguments = this.Arguments,
-            RunAsAdmin = this.RunAsAdmin
+            RunAsAdmin = this.RunAsAdmin,
+            Type = this.Type
         };
     }
 }

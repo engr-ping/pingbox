@@ -14,6 +14,7 @@
     <Authors>Ping</Authors>
     <Description>A simple program launcher with multi-page support</Description>
     <DefineConstants Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(DefineConstants);WINDOWS</DefineConstants>
+    <DefineConstants Condition="$([MSBuild]::IsOSPlatform('Linux'))">$(DefineConstants);LINUX</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
