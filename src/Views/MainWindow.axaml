@@ -59,21 +59,24 @@
 
         <Style Selector="Button.tb">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="10,6" />
             <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Foreground" Value="#97A4BD" />
+            <Setter Property="Foreground" Value="#C9D6EA" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Height" Value="34" />
         </Style>
 
         <Style Selector="Button.tb:pointerover">
-            <Setter Property="Background" Value="#1D2436" />
-            <Setter Property="Foreground" Value="#EEF4FF" />
+            <Setter Property="Background" Value="#2A3E63" />
+            <Setter Property="BorderBrush" Value="#7AA2FF" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
         </Style>
 
         <Style Selector="Button.tb.active">
-            <Setter Property="Background" Value="#27406F" />
+            <Setter Property="Background" Value="#32548F" />
+            <Setter Property="BorderBrush" Value="#8AB3FF" />
             <Setter Property="Foreground" Value="#FFFFFF" />
         </Style>
 
@@ -93,8 +96,7 @@
 
         <Style Selector="Button.software-card">
             <Setter Property="Background" Value="#141E33" />
-            <Setter Property="BorderBrush" Value="#284474" />
-            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderThickness" Value="0" />
             <Setter Property="CornerRadius" Value="14" />
             <Setter Property="Padding" Value="10" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -103,13 +105,11 @@
 
         <Style Selector="Button.software-card:pointerover">
             <Setter Property="Background" Value="#1B2A47" />
-            <Setter Property="BorderBrush" Value="#5E96FF" />
         </Style>
 
         <Style Selector="Button.folder-card">
             <Setter Property="Background" Value="#261B0C" />
-            <Setter Property="BorderBrush" Value="#664111" />
-            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderThickness" Value="0" />
             <Setter Property="CornerRadius" Value="14" />
             <Setter Property="Padding" Value="10" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -118,13 +118,11 @@
 
         <Style Selector="Button.folder-card:pointerover">
             <Setter Property="Background" Value="#33240E" />
-            <Setter Property="BorderBrush" Value="#F5B338" />
         </Style>
 
         <Style Selector="Button.file-card">
             <Setter Property="Background" Value="#0D201B" />
-            <Setter Property="BorderBrush" Value="#1C5A4A" />
-            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderThickness" Value="0" />
             <Setter Property="CornerRadius" Value="14" />
             <Setter Property="Padding" Value="10" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -133,20 +131,20 @@
 
         <Style Selector="Button.file-card:pointerover">
             <Setter Property="Background" Value="#132C24" />
-            <Setter Property="BorderBrush" Value="#28C796" />
         </Style>
 
         <Style Selector="Button.list-row">
-            <Setter Property="Background" Value="#0E1828" />
+            <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="#1E3050" />
             <Setter Property="BorderThickness" Value="0,0,0,1" />
             <Setter Property="CornerRadius" Value="0" />
-            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         </Style>
 
         <Style Selector="Button.list-row:pointerover">
-            <Setter Property="Background" Value="#1C2E4A" />
+            <Setter Property="Background" Value="#18263D" />
         </Style>
 
         <Style Selector="TextBox.search">
@@ -215,20 +213,37 @@
                 </Border>
 
                 <StackPanel Grid.Row="4" Spacing="8">
-                    <TextBlock Text="页面导航" FontSize="9" Foreground="#516079" Margin="4,0,0,0" />
+                    <Grid ColumnDefinitions="*,Auto" Margin="4,0,0,0">
+                        <TextBlock Text="页面导航" FontSize="9" Foreground="#516079" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Classes="tb" Width="28" Height="24" Padding="0" FontSize="14" Content="+" ToolTip.Tip="新增页面" Click="AddPageButton_Click" />
+                    </Grid>
                     <ListBox Classes="page-nav"
                              ItemsSource="{Binding Pages}"
                              SelectedIndex="{Binding SelectedIndex, Mode=TwoWay}">
+                        <ListBox.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="新增页面" Click="AddPageButton_Click" />
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:PageViewModel">
-                                <Grid ColumnDefinitions="Auto,*">
+                                <Grid ColumnDefinitions="Auto,*" PointerPressed="PageNavItem_PointerPressed">
+                                    <Grid.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="新增页面" Click="AddPageButton_Click" />
+                                            <MenuItem Header="编辑页面" Click="EditPageFromNav_Click" />
+                                            <MenuItem Header="删除页面" Click="DeletePageFromNav_Click" />
+                                        </ContextMenu>
+                                    </Grid.ContextMenu>
                                     <Border Width="8" Height="8" CornerRadius="4"
                                             Background="#7AA2FF"
                                             VerticalAlignment="Center" />
                                     <TextBlock Grid.Column="1"
                                                Text="{Binding Name}"
                                                Margin="10,0,0,0"
-                                               VerticalAlignment="Center" />
+                                               VerticalAlignment="Center"
+                                               TextWrapping="Wrap"
+                                               MaxWidth="150" />
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -310,7 +325,7 @@
                                                         </Button.ContextMenu>
                                                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
                                                             <Image Source="{Binding Icon}" Width="30" Height="30" />
-                                                            <TextBlock Text="{Binding Name}" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="96" Foreground="#EAF1FF" FontSize="10" />
+                                                            <TextBlock Text="{Binding Name}" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="96" MaxLines="2" Foreground="#EAF1FF" FontSize="10" />
                                                         </StackPanel>
                                                     </Button>
                                                 </DataTemplate>
@@ -372,6 +387,8 @@
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate x:DataType="vm:PageItemViewModel">
                                                         <Button Classes="software-card" Margin="4"
+                                                            HorizontalAlignment="Stretch"
+                                                            VerticalAlignment="Stretch"
                                                             ToolTip.Tip="{Binding Name}"
                                                                 Command="{Binding RunCommand}"
                                                                 PointerReleased="PageItem_PointerReleased">
@@ -386,7 +403,7 @@
                                                             </Button.ContextMenu>
                                                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
                                                                 <Image Source="{Binding Icon}" Width="30" Height="30" />
-                                                                <TextBlock Text="{Binding Name}" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="96" Foreground="#EAF1FF" FontSize="10" />
+                                                                <TextBlock Text="{Binding Name}" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="96" MaxLines="2" Foreground="#EAF1FF" FontSize="10" />
                                                             </StackPanel>
                                                         </Button>
                                                     </DataTemplate>
@@ -395,14 +412,12 @@
 
                                             <StackPanel IsVisible="{Binding IsListMode}" Margin="0,6,0,0">
                                                 <Border Background="#142744" BorderBrush="#284B7E" BorderThickness="0,0,0,1" Padding="10,6">
-                                                    <Grid ColumnDefinitions="40,220,*,140,70">
+                                                    <Grid ColumnDefinitions="40,220,*">
                                                         <TextBlock Grid.Column="1" Text="名称" Foreground="#AFC6ED" FontSize="10" FontWeight="SemiBold" />
                                                         <TextBlock Grid.Column="2" Text="路径" Foreground="#AFC6ED" FontSize="10" FontWeight="SemiBold" />
-                                                        <TextBlock Grid.Column="3" Text="参数" Foreground="#AFC6ED" FontSize="10" FontWeight="SemiBold" />
-                                                        <TextBlock Grid.Column="4" Text="管理员" Foreground="#AFC6ED" FontSize="10" FontWeight="SemiBold" />
                                                     </Grid>
                                                 </Border>
-                                                <ItemsControl ItemsSource="{Binding SoftwareItems}">
+                                                <ItemsControl ItemsSource="{Binding SoftwareItems}" HorizontalAlignment="Stretch">
                                                     <ItemsControl.ItemsPanel>
                                                         <ItemsPanelTemplate>
                                                             <StackPanel />
@@ -420,12 +435,10 @@
                                                                         <MenuItem Header="删除" Command="{Binding DeleteCommand}" />
                                                                     </ContextMenu>
                                                                 </Button.ContextMenu>
-                                                                <Grid ColumnDefinitions="40,220,*,140,70" VerticalAlignment="Center">
+                                                                <Grid ColumnDefinitions="40,220,*" VerticalAlignment="Center">
                                                                     <Image Source="{Binding Icon}" Width="16" Height="16" VerticalAlignment="Center" />
-                                                                    <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                                    <TextBlock Grid.Column="1" Text="{Binding Name}" TextWrapping="Wrap" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
                                                                     <TextBlock Grid.Column="2" Text="{Binding FullPath}" TextTrimming="CharacterEllipsis" Foreground="#D0D8E8" FontSize="10" VerticalAlignment="Center" />
-                                                                    <TextBlock Grid.Column="3" Text="{Binding Arguments}" TextTrimming="CharacterEllipsis" Foreground="#B8C5D8" FontSize="10" VerticalAlignment="Center" />
-                                                                    <TextBlock Grid.Column="4" Text="{Binding RunAsAdmin}" Foreground="#B8C5D8" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center" />
                                                                 </Grid>
                                                             </Button>
                                                         </DataTemplate>
@@ -449,6 +462,8 @@
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate x:DataType="vm:PageItemViewModel">
                                                         <Button Classes="folder-card" Margin="4"
+                                                            HorizontalAlignment="Stretch"
+                                                            VerticalAlignment="Stretch"
                                                             ToolTip.Tip="{Binding Name}"
                                                                 Command="{Binding RunCommand}"
                                                                 PointerReleased="PageItem_PointerReleased">
@@ -463,14 +478,14 @@
                                                             </Button.ContextMenu>
                                                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
                                                                 <Image Source="{Binding Icon}" Width="30" Height="30" />
-                                                                <TextBlock Text="{Binding Name}" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="96" Foreground="#FFE3A4" FontSize="10" />
+                                                                <TextBlock Text="{Binding Name}" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="96" MaxLines="2" Foreground="#FFE3A4" FontSize="10" />
                                                             </StackPanel>
                                                         </Button>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
 
-                                            <ItemsControl IsVisible="{Binding IsListMode}" ItemsSource="{Binding FolderItems}" Margin="0,6,0,0">
+                                            <ItemsControl IsVisible="{Binding IsListMode}" ItemsSource="{Binding FolderItems}" Margin="0,6,0,0" HorizontalAlignment="Stretch">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
                                                         <StackPanel />
@@ -488,12 +503,10 @@
                                                                     <MenuItem Header="删除" Command="{Binding DeleteCommand}" />
                                                                 </ContextMenu>
                                                             </Button.ContextMenu>
-                                                            <Grid ColumnDefinitions="40,220,*,140,70" VerticalAlignment="Center">
+                                                            <Grid ColumnDefinitions="40,220,*" VerticalAlignment="Center">
                                                                 <Image Source="{Binding Icon}" Width="16" Height="16" VerticalAlignment="Center" />
-                                                                <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" Foreground="#FFFACD" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                                                <TextBlock Grid.Column="2" Text="{Binding FullPath}" TextTrimming="CharacterEllipsis" Foreground="#E8D8A0" FontSize="10" VerticalAlignment="Center" />
-                                                                <TextBlock Grid.Column="3" Text="{Binding Arguments}" TextTrimming="CharacterEllipsis" Foreground="#D8C888" FontSize="10" VerticalAlignment="Center" />
-                                                                <TextBlock Grid.Column="4" Text="{Binding RunAsAdmin}" Foreground="#D8C888" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                                                <TextBlock Grid.Column="1" Text="{Binding Name}" TextWrapping="Wrap" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="2" Text="{Binding FullPath}" TextTrimming="CharacterEllipsis" Foreground="#D0D8E8" FontSize="10" VerticalAlignment="Center" />
                                                             </Grid>
                                                         </Button>
                                                     </DataTemplate>
@@ -516,6 +529,8 @@
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate x:DataType="vm:PageItemViewModel">
                                                         <Button Classes="file-card" Margin="4"
+                                                            HorizontalAlignment="Stretch"
+                                                            VerticalAlignment="Stretch"
                                                             ToolTip.Tip="{Binding Name}"
                                                                 Command="{Binding RunCommand}"
                                                                 PointerReleased="PageItem_PointerReleased">
@@ -530,14 +545,14 @@
                                                             </Button.ContextMenu>
                                                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
                                                                 <Image Source="{Binding Icon}" Width="30" Height="30" />
-                                                                <TextBlock Text="{Binding Name}" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="96" Foreground="#C2FFE9" FontSize="10" />
+                                                                <TextBlock Text="{Binding Name}" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="96" MaxLines="2" Foreground="#C2FFE9" FontSize="10" />
                                                             </StackPanel>
                                                         </Button>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
 
-                                            <ItemsControl IsVisible="{Binding IsListMode}" ItemsSource="{Binding FileItems}" Margin="0,6,0,0">
+                                            <ItemsControl IsVisible="{Binding IsListMode}" ItemsSource="{Binding FileItems}" Margin="0,6,0,0" HorizontalAlignment="Stretch">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
                                                         <StackPanel />
@@ -555,12 +570,10 @@
                                                                     <MenuItem Header="删除" Command="{Binding DeleteCommand}" />
                                                                 </ContextMenu>
                                                             </Button.ContextMenu>
-                                                            <Grid ColumnDefinitions="40,220,*,140,70" VerticalAlignment="Center">
+                                                            <Grid ColumnDefinitions="40,220,*" VerticalAlignment="Center">
                                                                 <Image Source="{Binding Icon}" Width="16" Height="16" VerticalAlignment="Center" />
-                                                                <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" Foreground="#F0FFFF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="1" Text="{Binding Name}" TextWrapping="Wrap" Foreground="#F0FFFF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
                                                                 <TextBlock Grid.Column="2" Text="{Binding FullPath}" TextTrimming="CharacterEllipsis" Foreground="#B8E8D8" FontSize="10" VerticalAlignment="Center" />
-                                                                <TextBlock Grid.Column="3" Text="{Binding Arguments}" TextTrimming="CharacterEllipsis" Foreground="#A0E0D0" FontSize="10" VerticalAlignment="Center" />
-                                                                <TextBlock Grid.Column="4" Text="{Binding RunAsAdmin}" Foreground="#A0E0D0" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center" />
                                                             </Grid>
                                                         </Button>
                                                     </DataTemplate>

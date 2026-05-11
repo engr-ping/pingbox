@@ -7,6 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <BuiltInComInteropSupport Condition="$([MSBuild]::IsOSPlatform('Windows'))">true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\pingbox.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <AssemblyName>PingBox</AssemblyName>
     <RootNamespace>PingBox</RootNamespace>
@@ -28,11 +29,6 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Remove="Assets\pingbox.ico" />
-    <AvaloniaResource Include="Assets\pingbox.ico" />
   </ItemGroup>
 
   <ItemGroup>

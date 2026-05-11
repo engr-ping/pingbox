@@ -23,6 +23,7 @@ public partial class App : Application
         Dispatcher.UIThread.UnhandledException += (_, e) =>
         {
             AppLogger.Error("Dispatcher UIThread unhandled exception", e.Exception);
+            e.Handled = true;
         };
 
         AppLogger.Info("Initializing Avalonia application.");
@@ -60,6 +61,36 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    public static void ActivateMainWindowFromSignal()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            try
+            {
+                if (Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop &&
+                    desktop.MainWindow is Window window)
+                {
+                    if (!window.IsVisible)
+                    {
+                        window.Show();
+                    }
+
+                    if (window.WindowState == WindowState.Minimized)
+                    {
+                        window.WindowState = WindowState.Normal;
+                    }
+
+                    window.Activate();
+                    AppLogger.Info("Existing instance activated by second-launch signal.");
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("Failed to activate main window from signal", ex);
+            }
+        });
     }
 
     private void SetupTrayIcon()

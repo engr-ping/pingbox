@@ -74,8 +74,8 @@ public partial class MainWindow : Window
 
             if (viewModel.HideOnStart)
             {
-                AppLogger.Info("MainWindow hidden on start due to configuration.");
-                Hide();
+                // Avoid "flash then disappear" behavior that looks like startup failure.
+                AppLogger.Warn("HideOnStart is enabled but ignored to keep main window visible on startup.");
             }
         }
     }
@@ -158,7 +158,16 @@ public partial class MainWindow : Window
             if (dialog.Confirmed && !string.IsNullOrWhiteSpace(dialog.InputText))
             {
                 if (DataContext is MainViewModel viewModel)
+                {
                     viewModel.AddPage(dialog.InputText.Trim());
+                    // If search is active, newly added page can look invisible; reset to normal page view.
+                    viewModel.SearchText = string.Empty;
+                    AppLogger.Info($"Page added successfully: '{dialog.InputText.Trim()}'");
+                }
+            }
+            else
+            {
+                AppLogger.Warn("AddPage ignored because dialog was canceled or page name is empty.");
             }
         }
         catch (Exception ex)
@@ -290,6 +299,46 @@ public partial class MainWindow : Window
             }
 
             e.Handled = files.Length > 0;
+        }
+    }
+
+    private void PageNavItem_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control { DataContext: PageViewModel pageVm } || DataContext is not MainViewModel mainVm)
+            return;
+
+        var index = mainVm.Pages.IndexOf(pageVm);
+        if (index >= 0)
+        {
+            mainVm.SelectedIndex = index;
+        }
+
+        if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed && sender is Control control && control.ContextMenu is ContextMenu menu)
+        {
+            menu.Open(control);
+            e.Handled = true;
+        }
+    }
+
+    private void EditPageFromNav_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        EditPageButton_Click(sender, e);
+    }
+
+    private void DeletePageFromNav_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: PageViewModel pageVm } && DataContext is MainViewModel mainVm)
+        {
+            var index = mainVm.Pages.IndexOf(pageVm);
+            if (index >= 0)
+            {
+                mainVm.SelectedIndex = index;
+            }
+        }
+
+        if (DataContext is MainViewModel viewModel && viewModel.RemovePageCommand.CanExecute(null))
+        {
+            viewModel.RemovePageCommand.Execute(null);
         }
     }
 

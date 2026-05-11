@@ -6,15 +6,21 @@ namespace PingBox.Views;
 
 public partial class InputDialog : Window
 {
+    private TextBox? _txtInput;
+
     public bool Confirmed { get; private set; }
-    public string InputText => txtInput.Text ?? string.Empty;
+    public string InputText => _txtInput?.Text ?? string.Empty;
 
     public InputDialog() : this(string.Empty) { }
     public InputDialog(string defaultText)
     {
         InitializeComponent();
-        txtInput.Text = defaultText;
-        Opened += (_, _) => { txtInput.SelectAll(); txtInput.Focus(); };
+        _txtInput = this.FindControl<TextBox>("txtInput");
+        if (_txtInput != null)
+        {
+            _txtInput.Text = defaultText;
+            Opened += (_, _) => { _txtInput.SelectAll(); _txtInput.Focus(); };
+        }
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
