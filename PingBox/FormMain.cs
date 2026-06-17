@@ -11,6 +11,11 @@ namespace PingBox
 {
     public partial class FormMain : Form
     {
+        private const int DefaultWindowWidth = 960;
+        private const int DefaultWindowHeight = 600;
+        private const int MinWindowWidth = 600;
+        private const int MinWindowHeight = 360;
+
         public List<string> backimages = new List<string>();
         public List<ListView> listViews = new List<ListView>();
         public List<Button> buttons = new List<Button>();
@@ -46,6 +51,29 @@ namespace PingBox
         public bool hotkeyon;
         public string hotkey1;
         public string hotkey2;
+        private bool useRelativePathStorage = true;
+
+        private ToolStripTextBox searchTextBox;
+        private ToolStripDropDownButton pathModeDropDownButton;
+        private ToolStripMenuItem pathModeRelativeMenuItem;
+        private ToolStripMenuItem pathModeAbsoluteMenuItem;
+
+        private SplitContainer explorerMainSplit;
+        private SplitContainer explorerRightSplit;
+        private ListBox explorerPageListBox;
+        private ListBox explorerTypeListBox;
+        private ListView explorerListView;
+        private ImageList explorerLargeImageList;
+        private ImageList explorerMediumImageList;
+        private ImageList explorerSmallImageList;
+        private bool syncingExplorerSelection;
+        private bool suppressExplorerFilterEvents;
+
+        private sealed class ExplorerRef
+        {
+            public int PageIndex { get; set; }
+            public ListViewItem SourceItem { get; set; }
+        }
 
         public FormMain()
         {
@@ -58,10 +86,27 @@ namespace PingBox
             lineSpacing = 75;
             columnSpacing = 75;
             InitializeComponent();
-            // 从文件加载图标
-            this.Icon = new Icon("pingbox.ico");
+            InitializeSearchAndTypeFilterUI();
+            // 从可执行目录加载图标，缺失时使用系统图标避免启动崩溃
+            string startupIconPath = Path.Combine(appdir, "pingbox.ico");
+            if (File.Exists(startupIconPath))
+            {
+                try
+                {
+                    this.Icon = new Icon(startupIconPath);
+                }
+                catch
+                {
+                    this.Icon = SystemIcons.Application;
+                }
+            }
+            else
+            {
+                this.Icon = SystemIcons.Application;
+            }
             Load += FormMain_Load;
             FormClosing += FormMain_FormClosing;
+            MinimumSize = new Size(MinWindowWidth, MinWindowHeight);
             panel1.Dock = DockStyle.Fill; 
             panel1.MouseDown += FormMain_MouseDown;
             panelButton.MouseDown += FormMain_MouseDown;
@@ -77,15 +122,17 @@ namespace PingBox
                 Margin = new Padding(0),
                 Padding = new Point(0, 0)
             };
+            tabControl.SelectedIndexChanged += TabControl_SelectedIndexChanged;
             panel1.Controls.Add(tabControl);
+            InitializeExplorerLayout();
             ReadCfg();
             notifyIcon.Text = Text;
             //if (tabControl.SelectedIndex > -1)
             //{
             //    buttons[tabControl.SelectedIndex].BackColor = Color.LightBlue;
             //}
-            panelButton.Height = tbheight;
-            panelButton.Width = tbwidth;
+            panelButton.Visible = false;
+            panelButton.Height = 0;
             string icofile = appdir + "\\" + appname + ".ico";
             if (System.IO.File.Exists(icofile))
             {
@@ -103,6 +150,463 @@ namespace PingBox
             panel1.DragDrop += Panel_DragDrop;
         }
 
+        private void InitializeSearchAndTypeFilterUI()
+        {
+            searchTextBox = new ToolStripTextBox
+            {
+                Name = "toolStripSearchTextBox",
+                AutoSize = false,
+                Width = 260,
+                Font = new Font("Microsoft YaHei UI", 10f, FontStyle.Regular),
+                ToolTipText = "输入名称、路径或参数进行搜索"
+            };
+            searchTextBox.TextChanged += SearchOrTypeFilter_Changed;
+
+            menuStrip1.Items.Add(new ToolStripSeparator());
+            menuStrip1.Items.Add(new ToolStripLabel("搜索"));
+            menuStrip1.Items.Add(searchTextBox);
+
+            pathModeDropDownButton = new ToolStripDropDownButton
+            {
+                Text = "路径: 相对"
+            };
+            pathModeRelativeMenuItem = new ToolStripMenuItem("存储为相对路径")
+            {
+                CheckOnClick = true,
+                Checked = true
+            };
+            pathModeAbsoluteMenuItem = new ToolStripMenuItem("存储为绝对路径")
+            {
+                CheckOnClick = true,
+                Checked = false
+            };
+            pathModeRelativeMenuItem.Click += (s, e) => SetPathStorageMode(true);
+            pathModeAbsoluteMenuItem.Click += (s, e) => SetPathStorageMode(false);
+            pathModeDropDownButton.DropDownItems.Add(pathModeRelativeMenuItem);
+            pathModeDropDownButton.DropDownItems.Add(pathModeAbsoluteMenuItem);
+            menuStrip1.Items.Add(new ToolStripSeparator());
+            menuStrip1.Items.Add(pathModeDropDownButton);
+            UpdatePathModeUI();
+        }
+
+        private void SetPathStorageMode(bool useRelative)
+        {
+            if (useRelativePathStorage == useRelative)
+            {
+                UpdatePathModeUI();
+                return;
+            }
+
+            useRelativePathStorage = useRelative;
+            ConvertAllItemPathsForCurrentMode();
+            UpdatePathModeUI();
+            ApplySearchAndTypeFilter();
+            WriteCfg();
+        }
+
+        private void UpdatePathModeUI()
+        {
+            if (pathModeDropDownButton == null)
+            {
+                return;
+            }
+
+            pathModeDropDownButton.Text = useRelativePathStorage ? "路径: 相对" : "路径: 绝对";
+            if (pathModeRelativeMenuItem != null)
+            {
+                pathModeRelativeMenuItem.Checked = useRelativePathStorage;
+            }
+            if (pathModeAbsoluteMenuItem != null)
+            {
+                pathModeAbsoluteMenuItem.Checked = !useRelativePathStorage;
+            }
+        }
+
+        private void InitializeExplorerLayout()
+        {
+            explorerMainSplit = new SplitContainer
+            {
+                Dock = DockStyle.Fill,
+                SplitterDistance = 180,
+                SplitterWidth = 8,
+                BackColor = Color.FromArgb(205, 228, 255)
+            };
+            explorerMainSplit.Paint += ExplorerSplit_Paint;
+
+            explorerRightSplit = new SplitContainer
+            {
+                Dock = DockStyle.Fill,
+                SplitterDistance = 110,
+                SplitterWidth = 8,
+                BackColor = Color.FromArgb(205, 228, 255)
+            };
+            explorerRightSplit.Paint += ExplorerSplit_Paint;
+
+            explorerLargeImageList = new ImageList
+            {
+                ImageSize = new Size(48, 48),
+                ColorDepth = ColorDepth.Depth32Bit
+            };
+            explorerMediumImageList = new ImageList
+            {
+                ImageSize = new Size(32, 32),
+                ColorDepth = ColorDepth.Depth32Bit
+            };
+            explorerSmallImageList = new ImageList
+            {
+                ImageSize = new Size(16, 16),
+                ColorDepth = ColorDepth.Depth32Bit
+            };
+
+            explorerPageListBox = new ListBox
+            {
+                Dock = DockStyle.Fill,
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.White,
+                ForeColor = Color.Black,
+                IntegralHeight = false,
+                Font = new Font("Microsoft YaHei UI", 11f, FontStyle.Bold)
+            };
+            explorerPageListBox.SelectedIndexChanged += ExplorerPageListBox_SelectedIndexChanged;
+
+            explorerTypeListBox = new ListBox
+            {
+                Dock = DockStyle.Fill,
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.White,
+                ForeColor = Color.Black,
+                IntegralHeight = false,
+                Font = new Font("Microsoft YaHei UI", 9.5f, FontStyle.Regular)
+            };
+            explorerTypeListBox.SelectedIndexChanged += ExplorerTypeListBox_SelectedIndexChanged;
+
+            explorerListView = new ListView
+            {
+                Dock = DockStyle.Fill,
+                View = View.LargeIcon,
+                LargeImageList = explorerLargeImageList,
+                SmallImageList = explorerSmallImageList,
+                FullRowSelect = true,
+                GridLines = true,
+                HideSelection = false,
+                MultiSelect = false
+            };
+            explorerListView.Columns.Add("名称", 180, HorizontalAlignment.Left);
+            explorerListView.Columns.Add("类型", 90, HorizontalAlignment.Left);
+            explorerListView.Columns.Add("路径", 360, HorizontalAlignment.Left);
+            explorerListView.Columns.Add("参数", 120, HorizontalAlignment.Left);
+            explorerListView.Columns.Add("页面", 110, HorizontalAlignment.Left);
+            explorerListView.Columns.Add("管理员", 80, HorizontalAlignment.Left);
+            explorerListView.SelectedIndexChanged += ExplorerListView_SelectedIndexChanged;
+            explorerListView.DoubleClick += ExplorerListView_DoubleClick;
+
+            explorerMainSplit.Panel1.Controls.Add(explorerPageListBox);
+            explorerMainSplit.Panel2.Controls.Add(explorerRightSplit);
+            explorerRightSplit.Panel1.Controls.Add(explorerTypeListBox);
+            explorerRightSplit.Panel2.Controls.Add(explorerListView);
+
+            panel1.Controls.Add(explorerMainSplit);
+            panel1.BackColor = Color.FromArgb(198, 222, 255);
+            tabControl.Visible = false;
+            tabControl.SendToBack();
+            ApplyExplorerSplitRatio();
+        }
+
+        private void ExplorerPageListBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (!suppressExplorerFilterEvents)
+            {
+                RefreshExplorerView();
+            }
+        }
+
+        private void ExplorerTypeListBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (!suppressExplorerFilterEvents)
+            {
+                RefreshExplorerView();
+            }
+        }
+
+        private void ExplorerListView_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (syncingExplorerSelection)
+            {
+                return;
+            }
+
+            if (explorerListView.SelectedItems.Count == 0)
+            {
+                return;
+            }
+
+            if (!(explorerListView.SelectedItems[0].Tag is ExplorerRef xref) || xref.SourceItem == null)
+            {
+                return;
+            }
+
+            syncingExplorerSelection = true;
+            try
+            {
+                if (xref.PageIndex >= 0 && xref.PageIndex < listViews.Count)
+                {
+                    tabControl.SelectedIndex = xref.PageIndex;
+                    ListView sourceView = listViews[xref.PageIndex];
+                    sourceView.SelectedItems.Clear();
+                    xref.SourceItem.Selected = true;
+                    xref.SourceItem.Focused = true;
+                    xref.SourceItem.EnsureVisible();
+                }
+            }
+            finally
+            {
+                syncingExplorerSelection = false;
+            }
+        }
+
+        private void ExplorerListView_DoubleClick(object sender, EventArgs e)
+        {
+            RunSelectedExplorerItem();
+        }
+
+        private void RunSelectedExplorerItem()
+        {
+            if (explorerListView == null || explorerListView.SelectedItems.Count == 0)
+            {
+                return;
+            }
+
+            if (!(explorerListView.SelectedItems[0].Tag is ExplorerRef xref) || xref.SourceItem == null)
+            {
+                return;
+            }
+
+            string rawPath = xref.SourceItem.SubItems[1].Text;
+            string arg = xref.SourceItem.SubItems[2].Text;
+            bool runas = xref.SourceItem.SubItems[3].Text.ToLower() == "true";
+
+            string path = rawPath;
+            try
+            {
+                if (!Path.IsPathRooted(path))
+                {
+                    path = Path.GetFullPath(Path.Combine(appdir, path));
+                }
+            }
+            catch
+            {
+                path = rawPath;
+            }
+
+            if (!File.Exists(path) && !Directory.Exists(path))
+            {
+                MessageBox.Show($"目标不存在:\n{path}", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                RunIcon(path, arg, runas);
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show($"无法运行项目:\n{exception.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (hideRun == !(ModifierKeys == Keys.Control))
+            {
+                Hide();
+            }
+        }
+
+        private void RefreshExplorerView()
+        {
+            if (explorerPageListBox == null || explorerTypeListBox == null || explorerListView == null)
+            {
+                return;
+            }
+
+            if (panelButton != null)
+            {
+                panelButton.Visible = false;
+                panelButton.Height = 0;
+            }
+
+            string selectedPage = explorerPageListBox.SelectedItem as string ?? "全部页面";
+            string selectedType = explorerTypeListBox.SelectedItem as string ?? "全部类型";
+
+            suppressExplorerFilterEvents = true;
+            try
+            {
+                explorerPageListBox.BeginUpdate();
+                explorerPageListBox.Items.Clear();
+                explorerPageListBox.Items.Add("全部页面");
+                for (int i = 0; i < tabControl.TabPages.Count; i++)
+                {
+                    explorerPageListBox.Items.Add(tabControl.TabPages[i].Text);
+                }
+                explorerPageListBox.EndUpdate();
+                if (!explorerPageListBox.Items.Contains(selectedPage))
+                {
+                    selectedPage = "全部页面";
+                }
+                explorerPageListBox.SelectedItem = selectedPage;
+
+                if (explorerTypeListBox.Items.Count == 0)
+                {
+                    explorerTypeListBox.Items.AddRange(new object[]
+                    {
+                        "全部类型", "应用程序", "快捷方式", "文件夹", "文档", "图片", "音频", "视频", "压缩包", "脚本", "其他"
+                    });
+                }
+                if (!explorerTypeListBox.Items.Contains(selectedType))
+                {
+                    selectedType = "全部类型";
+                }
+                explorerTypeListBox.SelectedItem = selectedType;
+            }
+            finally
+            {
+                suppressExplorerFilterEvents = false;
+            }
+
+            string keyword = (searchTextBox?.Text ?? string.Empty).Trim().ToLowerInvariant();
+
+            explorerListView.BeginUpdate();
+            explorerListView.Items.Clear();
+            explorerLargeImageList.Images.Clear();
+            explorerMediumImageList.Images.Clear();
+            explorerSmallImageList.Images.Clear();
+            foreach (int pageIndex in Enumerable.Range(0, listViews.Count))
+            {
+                ListView lv = listViews[pageIndex];
+                string pageName = pageIndex < tabControl.TabPages.Count ? tabControl.TabPages[pageIndex].Text : "-";
+                foreach (ListViewItem src in lv.Items)
+                {
+                    EnsureTypeSubItem(src);
+                    string type = src.SubItems[4].Text;
+                    bool keywordMatched = string.IsNullOrEmpty(keyword)
+                        || src.Text.ToLowerInvariant().Contains(keyword)
+                        || src.SubItems[1].Text.ToLowerInvariant().Contains(keyword)
+                        || src.SubItems[2].Text.ToLowerInvariant().Contains(keyword)
+                        || type.ToLowerInvariant().Contains(keyword);
+                    bool pageMatched = selectedPage == "全部页面" || pageName == selectedPage;
+                    bool typeMatched = selectedType == "全部类型" || type == selectedType;
+
+                    if (!keywordMatched || !pageMatched || !typeMatched)
+                    {
+                        continue;
+                    }
+
+                    ListViewItem row = new ListViewItem(src.Text);
+                    row.SubItems.Add(type);
+                    row.SubItems.Add(src.SubItems[1].Text);
+                    row.SubItems.Add(src.SubItems[2].Text);
+                    row.SubItems.Add(pageName);
+                    row.SubItems.Add(src.SubItems[3].Text.ToLower() == "true" ? "是" : "否");
+
+                    int iconIndex = -1;
+                    if (src.ImageIndex >= 0 && src.ImageIndex < largeImageLists[pageIndex].Images.Count)
+                    {
+                        explorerLargeImageList.Images.Add((Image)largeImageLists[pageIndex].Images[src.ImageIndex].Clone());
+                        if (src.ImageIndex < mediumImageLists[pageIndex].Images.Count)
+                        {
+                            explorerMediumImageList.Images.Add((Image)mediumImageLists[pageIndex].Images[src.ImageIndex].Clone());
+                        }
+                        else
+                        {
+                            explorerMediumImageList.Images.Add((Image)FilesystemIcons.ICON_FILE_32x.ToBitmap().Clone());
+                        }
+                        if (src.ImageIndex < smallImageLists[pageIndex].Images.Count)
+                        {
+                            explorerSmallImageList.Images.Add((Image)smallImageLists[pageIndex].Images[src.ImageIndex].Clone());
+                        }
+                        else
+                        {
+                            explorerSmallImageList.Images.Add((Image)FilesystemIcons.ICON_FILE_16x.ToBitmap().Clone());
+                        }
+                        iconIndex = explorerLargeImageList.Images.Count - 1;
+                    }
+                    if (iconIndex >= 0)
+                    {
+                        row.ImageIndex = iconIndex;
+                    }
+
+                    row.Tag = new ExplorerRef { PageIndex = pageIndex, SourceItem = src };
+                    explorerListView.Items.Add(row);
+                }
+            }
+            explorerListView.EndUpdate();
+
+            if (explorerListView.Items.Count > 0)
+            {
+                explorerListView.Items[0].Selected = true;
+            }
+
+            ApplyExplorerSplitRatio();
+        }
+
+        private void ApplyExplorerSplitRatio()
+        {
+            if (explorerMainSplit == null || explorerRightSplit == null || panel1 == null)
+            {
+                return;
+            }
+
+            int totalWidth = Math.Max(1, panel1.ClientSize.Width);
+            int leftWidth = Math.Max(96, (int)(totalWidth * 0.06));
+            int middleWidth = Math.Max(110, (int)(totalWidth * 0.06));
+
+            if (leftWidth + middleWidth > totalWidth - 120)
+            {
+                leftWidth = Math.Max(90, (int)(totalWidth * 0.06));
+                middleWidth = Math.Max(90, (int)(totalWidth * 0.05));
+            }
+
+            explorerMainSplit.SplitterDistance = leftWidth;
+            explorerRightSplit.SplitterDistance = middleWidth;
+        }
+
+        private void ExplorerSplit_Paint(object sender, PaintEventArgs e)
+        {
+            SplitContainer split = sender as SplitContainer;
+            if (split == null)
+            {
+                return;
+            }
+
+            Rectangle splitter = split.SplitterRectangle;
+            using (SolidBrush splitterBrush = new SolidBrush(Color.FromArgb(184, 211, 246)))
+            {
+                e.Graphics.FillRectangle(splitterBrush, splitter);
+            }
+
+            int centerX = splitter.Left + splitter.Width / 2;
+            int dotStartY = splitter.Top + (splitter.Height - 20) / 2;
+            using (SolidBrush dotBrush = new SolidBrush(Color.FromArgb(104, 140, 194)))
+            {
+                for (int i = 0; i < 5; i++)
+                {
+                    e.Graphics.FillEllipse(dotBrush, centerX - 2, dotStartY + i * 5, 4, 4);
+                }
+            }
+        }
+
+        private void SetExplorerViewMode(View viewMode, bool useMediumIcon = false)
+        {
+            if (explorerListView == null)
+            {
+                return;
+            }
+
+            if (viewMode == View.LargeIcon)
+            {
+                explorerListView.LargeImageList = useMediumIcon ? explorerMediumImageList : explorerLargeImageList;
+            }
+            explorerListView.View = viewMode;
+        }
+
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         public static extern bool ReleaseCapture();
         [System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -116,6 +620,11 @@ namespace PingBox
                 WindowState = FormWindowState.Minimized;
                 BeginInvoke(new System.Threading.ThreadStart(Hide));
             }
+            BeginInvoke(new Action(() =>
+            {
+                RefreshExplorerView();
+                ApplyExplorerSplitRatio();
+            }));
             if (lineSpacing != 75 || columnSpacing != 75)
                 SetIcoSpacing();
         }
@@ -138,7 +647,7 @@ namespace PingBox
         private void Panel_DragDrop(object sender, DragEventArgs e)
         {
             // 恢复背景色
-            panel1.BackColor = Color.White;
+            panel1.BackColor = Color.FromArgb(198, 222, 255);
             
                 
          string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
@@ -155,8 +664,67 @@ namespace PingBox
                     //WriteCfg();
                 }
 
+                ApplySearchAndTypeFilter();
+
             }
 
+        }
+
+        private void TabControl_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            ApplySearchAndTypeFilter();
+        }
+
+        private void SearchOrTypeFilter_Changed(object sender, EventArgs e)
+        {
+            ApplySearchAndTypeFilter();
+        }
+
+        private void ApplySearchAndTypeFilter()
+        {
+            RefreshExplorerView();
+        }
+
+        private void EnsureTypeSubItem(ListViewItem item)
+        {
+            while (item.SubItems.Count <= 4)
+            {
+                item.SubItems.Add(string.Empty);
+            }
+
+            item.SubItems[4].Text = DetectFileCategory(item.SubItems[1].Text);
+        }
+
+        private string DetectFileCategory(string fullPath)
+        {
+            if (string.IsNullOrWhiteSpace(fullPath))
+            {
+                return "其他";
+            }
+
+            try
+            {
+                if (Directory.Exists(fullPath))
+                {
+                    return "文件夹";
+                }
+
+                string ext = Path.GetExtension(fullPath).ToLowerInvariant();
+                if (ext == ".lnk") return "快捷方式";
+                if (ext == ".exe" || ext == ".bat" || ext == ".cmd" || ext == ".msi") return "应用程序";
+                if (ext == ".txt" || ext == ".doc" || ext == ".docx" || ext == ".pdf" || ext == ".xls" || ext == ".xlsx" || ext == ".ppt" || ext == ".pptx") return "文档";
+                if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" || ext == ".bmp" || ext == ".webp" || ext == ".ico") return "图片";
+                if (ext == ".mp3" || ext == ".wav" || ext == ".flac" || ext == ".aac" || ext == ".ogg") return "音频";
+                if (ext == ".mp4" || ext == ".mkv" || ext == ".avi" || ext == ".mov" || ext == ".wmv") return "视频";
+                if (ext == ".zip" || ext == ".rar" || ext == ".7z" || ext == ".tar" || ext == ".gz") return "压缩包";
+                if (ext == ".ps1" || ext == ".vbs" || ext == ".js" || ext == ".py" || ext == ".sh") return "脚本";
+
+                return "其他";
+            }
+            catch
+            {
+                return "其他";
+            }
         }
             
 
@@ -174,6 +742,12 @@ namespace PingBox
             tabControl.Width = panel1.Width + 8;
             tabControl.Height = panel1.Height + 8 + 16;
             tabControl.Location = new Point(-4, -4);
+            ApplyExplorerSplitRatio();
+            if (panelButton != null)
+            {
+                panelButton.Visible = false;
+                panelButton.Height = 0;
+            }
             if (WindowState == FormWindowState.Normal)
             {
                 width = Width;
@@ -226,6 +800,12 @@ namespace PingBox
 
         private void RunItem()
         {
+            if (explorerListView != null && explorerListView.Visible && explorerListView.SelectedItems.Count > 0)
+            {
+                RunSelectedExplorerItem();
+                return;
+            }
+
             // 安全检查
             if (tabControl.SelectedIndex < 0 || tabControl.SelectedIndex >= listViews.Count)
             {
@@ -424,6 +1004,85 @@ namespace PingBox
                 return fullPath;
             }
         }
+
+        private string BuildStoredPath(string path)
+        {
+            return ConvertPathForStorageMode(path, useRelativePathStorage);
+        }
+
+        private string ConvertPathForStorageMode(string path, bool useRelative)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return path;
+            }
+
+            try
+            {
+                if (!Path.IsPathRooted(path))
+                {
+                    if (useRelative)
+                    {
+                        return path;
+                    }
+
+                    return Path.GetFullPath(Path.Combine(appdir, path));
+                }
+
+                if (!useRelative)
+                {
+                    return path;
+                }
+
+                if (path.StartsWith(@"\\"))
+                {
+                    return path;
+                }
+
+                string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                if (!string.Equals(Path.GetPathRoot(path), Path.GetPathRoot(appDirectory), StringComparison.OrdinalIgnoreCase))
+                {
+                    return path;
+                }
+
+                string relativePath = GetRelativePath(appDirectory, path);
+                if (string.IsNullOrWhiteSpace(relativePath) || relativePath == path)
+                {
+                    return path;
+                }
+
+                return relativePath;
+            }
+            catch
+            {
+                return path;
+            }
+        }
+
+        private void ConvertAllItemPathsForCurrentMode()
+        {
+            foreach (ListView listView in listViews)
+            {
+                foreach (ListViewItem item in listView.Items)
+                {
+                    if (item.SubItems.Count < 2)
+                    {
+                        continue;
+                    }
+
+                    string convertedPath = ConvertPathForStorageMode(item.SubItems[1].Text, useRelativePathStorage);
+                    item.SubItems[1].Text = convertedPath;
+
+                    string tip = $"{item.Text}\n链接：{convertedPath}";
+                    if (item.SubItems.Count > 2 && !string.IsNullOrEmpty(item.SubItems[2].Text))
+                    {
+                        tip += $"\n参数：{item.SubItems[2].Text}";
+                    }
+                    item.ToolTipText = tip;
+                }
+            }
+        }
+
         private void WriteCfg()
         {
             // 备份当前配置文件（如果存在）
@@ -531,6 +1190,10 @@ namespace PingBox
                 hotk2.InnerText = hotkey2;
                 set.AppendChild(hotk2);
 
+                XmlElement pathMode = doc.CreateElement("PathStorageMode");
+                pathMode.InnerText = useRelativePathStorage ? "Relative" : "Absolute";
+                set.AppendChild(pathMode);
+
                 XmlElement datas = doc.CreateElement("Pages");
                 cfg.AppendChild(datas);
                 for (int i = 0; i < listViews.Count; i++)
@@ -557,43 +1220,7 @@ namespace PingBox
                         name.InnerText = item.Text;
                         XmlElement fullpath = doc.CreateElement("FullPath");
                         string path = item.SubItems[1].Text;
-                        try
-                        {
-                            string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
-
-
-                            // 不同驱动器，无法生成相对路径
-                            if (System.IO.Path.GetPathRoot(path) != System.IO.Path.GetPathRoot(appDirectory))
-                            {
-                                fullpath.InnerText = path;
-                                data.AppendChild(fullpath);
-                            }
-                            else if (path.StartsWith(@"\\"))   // 网络路径（UNC），直接使用绝对路径
-                            {
-                                fullpath.InnerText = path;
-                                data.AppendChild(fullpath);
-                            }
-                            else
-                            {
-                                // 尝试转换为相对路径 - 完全移除回溯限制
-                                string relativePath = GetRelativePath(appDirectory, path);
-                                
-                                // 只要转换成功且不是空路径，就使用相对路径
-                                if (!string.IsNullOrEmpty(relativePath) && relativePath != path)
-                                {
-                                    path = relativePath;
-                                }
-                                fullpath.InnerText = path;
-                            }
-
-
-                            //MessageBox.Show($"Original Path: {path}\nApp Directory: {AppDomain.CurrentDomain.BaseDirectory}");
-                        }
-                        catch (Exception ex)
-                        {
-                            // 转换失败，保持绝对路径
-                            fullpath.InnerText = path;
-                        }
+                        fullpath.InnerText = BuildStoredPath(path);
 
                         XmlElement arg = doc.CreateElement("Args");
                         arg.InnerText = item.SubItems[2].Text;
@@ -736,8 +1363,8 @@ namespace PingBox
                 XmlDocument doc = new XmlDocument();
                 doc.Load(cfgFile);
                 Text = doc.SelectSingleNode("Config/Setting/Title").InnerText;
-                Height = int.Parse(doc.SelectSingleNode("Config/Setting/Height").InnerText);
-                Width = int.Parse(doc.SelectSingleNode("Config/Setting/Width").InnerText);
+                Height = Math.Max(MinWindowHeight, int.Parse(doc.SelectSingleNode("Config/Setting/Height").InnerText));
+                Width = Math.Max(MinWindowWidth, int.Parse(doc.SelectSingleNode("Config/Setting/Width").InnerText));
                 int lx = int.Parse(doc.SelectSingleNode("Config/Setting/LocationX").InnerText);
                 ShowInTaskbar = bool.Parse(doc.SelectSingleNode("Config/Setting/StatusBar").InnerText);
                 ShowIcon = true;//bool.Parse(doc.SelectSingleNode("Config/Setting/WindowIcon").InnerText);
@@ -760,7 +1387,7 @@ namespace PingBox
                 {
                     lx = Screen.PrimaryScreen.Bounds.Width - Width;
                 }
-                if (ly + Width <= 0)
+                if (ly + Height <= 0)
                 {
                     ly = 0;
                 }
@@ -784,6 +1411,17 @@ namespace PingBox
                 {
                     DefaultHotKey();
                 }
+
+                try
+                {
+                    string pathModeText = doc.SelectSingleNode("Config/Setting/PathStorageMode")?.InnerText;
+                    useRelativePathStorage = !string.Equals(pathModeText, "Absolute", StringComparison.OrdinalIgnoreCase);
+                }
+                catch
+                {
+                    useRelativePathStorage = true;
+                }
+                UpdatePathModeUI();
                 using (XmlNodeList tabs = doc.SelectNodes("Config/Pages/Page"))
                 {
                     for (int i = 0; i < tabs.Count; i++)
@@ -915,6 +1553,7 @@ namespace PingBox
         private void LoadDefault()
         {
             StartPosition = FormStartPosition.CenterScreen;
+            Size = new Size(DefaultWindowWidth, DefaultWindowHeight);
             Text = appname;
             notifyIcon.Text = appname;
             DefaultHotKey();
@@ -1007,6 +1646,7 @@ namespace PingBox
             item.SubItems.Add(icoInfoFile.FullName);
             item.SubItems.Add(icoInfoFile.Args);
             item.SubItems.Add(icoInfoFile.RunAsA.ToString());
+            item.SubItems.Add(DetectFileCategory(icoInfoFile.FullName));
             string tip = $"{item.Text}\n链接：{item.SubItems[1].Text}";
             if (!string.IsNullOrEmpty(item.SubItems[2].Text))
             {
@@ -1048,6 +1688,7 @@ namespace PingBox
                     AddFile(item);
                 }
             }
+            ApplySearchAndTypeFilter();
             WriteCfg();
         }
 
@@ -1099,6 +1740,7 @@ namespace PingBox
             listView.Columns.Add("路径", 300, HorizontalAlignment.Left);
             listView.Columns.Add("参数", 100, HorizontalAlignment.Left);
             listView.Columns.Add("管理员权限", 100, HorizontalAlignment.Left);
+            listView.Columns.Add("类型", 90, HorizontalAlignment.Left);
             //listView.ArrangeIcons();
             listViews.Add(listView);
             TabPage tabPage = new TabPage
@@ -1227,42 +1869,27 @@ namespace PingBox
 
         private void BigIconsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
-            {
-                listViews[tabControl.SelectedIndex].View = View.LargeIcon;
-            }
+            SetExplorerViewMode(View.LargeIcon);
         }
         
         private void SmallIconsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
-            {
-                listViews[tabControl.SelectedIndex].View = View.SmallIcon;
-            }
+            SetExplorerViewMode(View.SmallIcon);
         }
         
         private void DetailToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
-            {
-                listViews[tabControl.SelectedIndex].View = View.Details;
-            }
+            SetExplorerViewMode(View.Details);
         }
         
         private void ListToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
-            {
-                listViews[tabControl.SelectedIndex].View = View.List;
-            }
+            SetExplorerViewMode(View.List);
         }
         
         private void TileToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
-            {
-                listViews[tabControl.SelectedIndex].View = View.Tile;
-            }
+            SetExplorerViewMode(View.Tile);
         }
 
         private void AddFileToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1322,6 +1949,7 @@ namespace PingBox
                 {
                     listViews[i].Items[j - 1].Selected = true;
                 }
+                ApplySearchAndTypeFilter();
                 WriteCfg();
             }
         }
@@ -1444,12 +2072,14 @@ namespace PingBox
                     listViews[i1].Items[i].SubItems[1].Text = editIco.f.FullName;
                     listViews[i1].Items[i].SubItems[2].Text = editIco.f.Args;
                     listViews[i1].Items[i].SubItems[3].Text = editIco.f.RunAsA.ToString();
+                    EnsureTypeSubItem(listViews[i1].Items[i]);
                     string tip = $"{editIco.f.Name}\n链接：{editIco.f.FullName}";
                     if (!string.IsNullOrEmpty(editIco.f.Args))
                     {
                         tip += $"\n参数：{editIco.f.Args}";
                     }
                     listViews[i1].Items[i].ToolTipText = tip;
+                    ApplySearchAndTypeFilter();
                     WriteCfg();
                 }
             }
@@ -1474,6 +2104,7 @@ namespace PingBox
                     AddPage(nameTab.name);
                     tabControl.SelectedIndex = tabControl.TabPages.Count - 1;
                     FitButton();
+                    ApplySearchAndTypeFilter();
                     WriteCfg();
                 }
             }
@@ -1578,54 +2209,32 @@ namespace PingBox
 
         private void 大图标ToolStripMenuItem1_Click(object sender, EventArgs e)
         {
-            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
-            {
-                listViews[tabControl.SelectedIndex].View = View.LargeIcon;
-            }
+            SetExplorerViewMode(View.LargeIcon);
         }
 
         private void 中图标ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
-            {
-                // 中等图标视图 - WinForms ListView 默认不直接支持中图标
-                // 可以通过设置 SmallIcon 并调整 ImageList 大小来模拟
-                ListView currentListView = listViews[tabControl.SelectedIndex];
-                currentListView.View = View.LargeIcon;
-                currentListView.LargeImageList = mediumImageLists[tabControl.SelectedIndex];
-            }
+            SetExplorerViewMode(View.LargeIcon, true);
         }
 
         private void 小图标ToolStripMenuItem1_Click(object sender, EventArgs e)
         {
-            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
-            {
-                listViews[tabControl.SelectedIndex].View = View.SmallIcon;
-            }
+            SetExplorerViewMode(View.SmallIcon);
         }
 
         private void 详细列表ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
-            {
-                listViews[tabControl.SelectedIndex].View = View.Details;
-            }
+            SetExplorerViewMode(View.Details);
         }
         
         private void 列表ToolStripMenuItem1_Click(object sender, EventArgs e)
         {
-            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
-            {
-                listViews[tabControl.SelectedIndex].View = View.List;
-            }
+            SetExplorerViewMode(View.List);
         }
 
         private void 平铺ToolStripMenuItem1_Click(object sender, EventArgs e)
         {
-            if (tabControl.SelectedIndex >= 0 && tabControl.SelectedIndex < listViews.Count)
-            {
-                listViews[tabControl.SelectedIndex].View = View.Tile;
-            }
+            SetExplorerViewMode(View.Tile);
         }
 
     }
